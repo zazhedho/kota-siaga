@@ -1,0 +1,111 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--ks-background);
+  color: var(--ks-ink);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accessibility & Focus */
+:focus-visible {
+  outline: 2px solid var(--ks-primary);
+  outline-offset: 2px;
+}
+
+/* Touch targets */
+.form-select,
+.form-control,
+.btn {
+  min-height: 44px;
+}
+
+.btn-group .btn {
+  min-height: 40px;
+  min-width: 44px;
+}
+
+/* Layout Utilities */
+.ks-card {
+  background-color: var(--ks-surface);
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius);
+  box-shadow: var(--ks-shadow);
+  padding: 1.25rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ks-header {
+  background-color: var(--ks-surface);
+  border-bottom: 1px solid var(--ks-border);
+}
+
+.ks-brand-title {
+  color: var(--ks-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ks-badge-warning {
+  background-color: var(--ks-warning-bg);
+  color: var(--ks-warning);
+  border: 1px solid var(--ks-warning-border);
+}
+
+.ks-badge-danger {
+  background-color: var(--ks-danger-bg);
+  color: var(--ks-danger);
+  border: 1px solid var(--ks-danger-border);
+}
+
+.ks-badge-success {
+  background-color: var(--ks-success-bg);
+  color: var(--ks-success);
+  border: 1px solid var(--ks-success-border);
+}
+
+.ks-badge-neutral {
+  background-color: #f2f4f7;
+  color: var(--ks-muted);
+  border: 1px solid var(--ks-border);
+}
+
+/* Hospital Item Card */
+.ks-hospital-card {
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius);
+  padding: 1rem;
+  background-color: var(--ks-surface);
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Forecast Item */
+.ks-forecast-item {
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius);
+  padding: 0.875rem;
+  background-color: #fafbfc;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
