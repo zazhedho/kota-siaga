@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"reflect"
 
-	"starter-kit/pkg/logger"
-	"starter-kit/pkg/messages"
-	"starter-kit/pkg/response"
-	"starter-kit/utils"
+	"kota-siaga/pkg/logger"
+	"kota-siaga/pkg/messages"
+	"kota-siaga/pkg/response"
+	"kota-siaga/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

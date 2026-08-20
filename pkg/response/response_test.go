@@ -44,21 +44,6 @@ func TestErrorHelpersHideInternalDetails(t *testing.T) {
 	if got.Message != "Something went wrong" {
 		t.Fatalf("unexpected internal server error title: %+v", got)
 	}
-
-	unauthorized := Unauthorized(logID, "login required")
-	if unauthorized.Status || unauthorized.Error.(Errors).Code != http.StatusUnauthorized {
-		t.Fatalf("unexpected unauthorized response: %+v", unauthorized)
-	}
-	if unauthorized.Message != "Unauthorized" || unauthorized.Error.(Errors).Message != "login required" {
-		t.Fatalf("unexpected unauthorized message: %+v", unauthorized)
-	}
-	forbidden := Forbidden(logID, "denied")
-	if forbidden.Status || forbidden.Error.(Errors).Code != http.StatusForbidden {
-		t.Fatalf("unexpected forbidden response: %+v", forbidden)
-	}
-	if forbidden.Message != "Forbidden" || forbidden.Error.(Errors).Message != "denied" {
-		t.Fatalf("unexpected forbidden message: %+v", forbidden)
-	}
 }
 
 func TestPaginationResponseCalculatesPageState(t *testing.T) {

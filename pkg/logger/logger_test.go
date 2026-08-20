@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"starter-kit/utils"
+	"kota-siaga/utils"
 )
 
 func TestMapLevelToSlog(t *testing.T) {
@@ -85,5 +85,17 @@ func TestLoggerPublicWritePaths(t *testing.T) {
 	}
 	if logger := getLogger(); logger == nil {
 		t.Fatal("expected logger singleton")
+	}
+}
+
+func TestConfiguredLogLevelUsesOneFallback(t *testing.T) {
+	t.Setenv("LOG_LEVEL", "")
+	if got := configuredLogLevel(); got != 5 {
+		t.Fatalf("expected empty LOG_LEVEL fallback 5, got %d", got)
+	}
+
+	t.Setenv("LOG_LEVEL", "not-a-level")
+	if got := configuredLogLevel(); got != 5 {
+		t.Fatalf("expected invalid LOG_LEVEL fallback 5, got %d", got)
 	}
 }

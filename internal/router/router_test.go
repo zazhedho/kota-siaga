@@ -3,15 +3,68 @@ package router
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	redismock "github.com/go-redis/redismock/v9"
+
+	"github.com/gin-gonic/gin"
 )
 
+const routerAtomicRateLimitScript = `
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+    redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+return current`
+
+func TestNewRoutesRegistersExactPublicRoutes(t *testing.T) {
+	routes := NewRoutes(nil, nil)
+	registered := map[string]bool{}
+	for _, route := range routes.App.Routes() {
+		registered[route.Method+" "+route.Path] = true
+	}
+
+	want := map[string]bool{
+		"GET /healthcheck":            true,
+		"GET /api/locations/province": true,
+		"GET /api/locations/city":     true,
+		"GET /api/locations/district": true,
+		"GET /api/locations/village":  true,
+		"GET /api/weather":            true,
+		"GET /api/warnings":           true,
+		"GET /api/earthquakes/latest": true,
+		"GET /api/hospitals":          true,
+	}
+	if len(registered) != len(want) {
+		t.Fatalf("expected %d routes, got %d: %v", len(want), len(registered), registered)
+	}
+	for route := range want {
+		if !registered[route] {
+			t.Fatalf("expected route %s to be registered", route)
+		}
+	}
+}
+
+func TestNewRoutesExcludesCopiedStarterKitRoutes(t *testing.T) {
+	routes := NewRoutes(nil, nil)
+	for _, copiedPath := range []string{
+		"/api/user/login",
+		"/api/roles",
+		"/api/location/sync",
+		"/api/media",
+	} {
+		for _, route := range routes.App.Routes() {
+			if route.Path == copiedPath {
+				t.Fatalf("copied route %s must not be registered", copiedPath)
+			}
+		}
+	}
+}
+
 func TestNewRoutesRegistersHealthcheck(t *testing.T) {
-	routes := NewRoutes()
+	routes := NewRoutes(nil, nil)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
@@ -22,71 +75,54 @@ func TestNewRoutesRegistersHealthcheck(t *testing.T) {
 	}
 }
 
-func TestSessionRoutesSkipsWhenRedisUnavailable(t *testing.T) {
-	routes := NewRoutes()
-	routes.SessionRoutes()
+func TestNewRoutesUsesCustomRecoveryForPanics(t *testing.T) {
+	routes := NewRoutes(nil, nil)
+	routes.App.GET("/panic", func(_ *gin.Context) {
+		panic("boom")
+	})
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/user/sessions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
 	routes.App.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected unregistered route to return 404, got %d", rec.Code)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("expected JSON recovery response, got headers=%v", rec.Header())
+	}
+	if !strings.Contains(rec.Body.String(), `"status":false`) {
+		t.Fatalf("expected custom recovery envelope, got %s", rec.Body.String())
 	}
 }
 
-func newRouterDryRunDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	sqlDB, _, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("sqlmock: %v", err)
-	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
+func TestNewRoutesUsesRemoteAddrForPublicRateLimitIdentity(t *testing.T) {
+	t.Setenv("PUBLIC_RATE_LIMIT", "1")
+	t.Setenv("PUBLIC_RATE_WINDOW", "1m")
 
-	db, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB, PreferSimpleProtocol: true}), &gorm.Config{
-		DryRun:                 true,
-		SkipDefaultTransaction: true,
+	client, mock := redismock.NewClientMock()
+	key := "rate_limit:public:1.2.3.4"
+	mock.ExpectEval(routerAtomicRateLimitScript, []string{key}, time.Minute.Milliseconds()).SetVal(int64(1))
+
+	routes := NewRoutes(client, nil)
+	routes.App.GET("/identity", func(ctx *gin.Context) {
+		ctx.Status(http.StatusNoContent)
 	})
-	if err != nil {
-		t.Fatalf("open gorm: %v", err)
-	}
-	return db
-}
 
-func TestRouteGroupsRegisterWithDryRunDB(t *testing.T) {
-	t.Setenv("MEDIA_ENABLED", "false")
-	routes := NewRoutes()
-	routes.DB = newRouterDryRunDB(t)
-
-	routes.UserRoutes()
-	routes.RoleRoutes()
-	routes.PermissionRoutes()
-	routes.MenuRoutes()
-	routes.AppConfigRoutes()
-	routes.AuditRoutes()
-	routes.LocationRoutes()
-	if err := routes.MediaRoutes(); err != nil {
-		t.Fatalf("register media routes: %v", err)
+	if routes.App.ForwardedByClientIP {
+		t.Fatal("expected forwarded client IP trust to be disabled")
 	}
 
-	registered := map[string]bool{}
-	for _, route := range routes.App.Routes() {
-		registered[route.Method+" "+route.Path] = true
-	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/identity", nil)
+	req.RemoteAddr = "1.2.3.4:12345"
+	req.Header.Set("X-Forwarded-For", "9.9.9.9")
+	routes.App.ServeHTTP(rec, req)
 
-	for _, want := range []string{
-		"POST /api/user/register",
-		"POST /api/user/login",
-		"GET /api/roles",
-		"GET /api/permissions",
-		"GET /api/menus",
-		"GET /api/configs",
-		"GET /api/audits",
-		"GET /api/location/province",
-		"POST /api/location/sync",
-	} {
-		if !registered[want] {
-			t.Fatalf("expected route %s to be registered", want)
-		}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("redis expectations: %v", err)
 	}
 }

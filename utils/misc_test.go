@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
@@ -11,8 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-
-	domainuser "starter-kit/internal/domain/user"
 )
 
 func TestJSONAndStringHelpers(t *testing.T) {
@@ -63,7 +60,7 @@ func TestGenerateLogIdAndRequestID(t *testing.T) {
 	}
 }
 
-func TestValidateErrorAndValidateUUID(t *testing.T) {
+func TestValidateError(t *testing.T) {
 	type request struct {
 		Email string `json:"email" validate:"required,email"`
 	}
@@ -77,29 +74,6 @@ func TestValidateErrorAndValidateUUID(t *testing.T) {
 	got = ValidateError(errors.New("plain error"), reflect.TypeOf(request{}), "json")
 	if len(got) != 1 || got[0].Message != "plain error" {
 		t.Fatalf("unexpected plain error mapping: %+v", got)
-	}
-
-	gin.SetMode(gin.TestMode)
-	rec := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(rec)
-	ctx.Params = gin.Params{{Key: "id", Value: "not-a-uuid"}}
-	if _, err := ValidateUUID(ctx, uuid.New()); err == nil || rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected invalid uuid response, code=%d err=%v", rec.Code, err)
-	}
-
-	rec = httptest.NewRecorder()
-	ctx, _ = gin.CreateTestContext(rec)
-	if _, err := ValidateUUID(ctx, uuid.New()); err == nil || rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected missing uuid response, code=%d err=%v", rec.Code, err)
-	}
-
-	id := uuid.NewString()
-	rec = httptest.NewRecorder()
-	ctx, _ = gin.CreateTestContext(rec)
-	ctx.Params = gin.Params{{Key: "id", Value: id}}
-	gotID, err := ValidateUUID(ctx, uuid.New())
-	if err != nil || gotID != id {
-		t.Fatalf("expected valid uuid, id=%q err=%v", gotID, err)
 	}
 }
 
@@ -150,27 +124,5 @@ func TestValidateErrorMapsKnownTags(t *testing.T) {
 		if messages[field] != message {
 			t.Fatalf("expected %s=%q, got %q in %#v", field, message, messages[field], messages)
 		}
-	}
-}
-
-func TestJwtClaimsReadsAuthorizationHeader(t *testing.T) {
-	t.Setenv("JWT_KEY", "test-secret-must-be-at-least-32-bytes")
-	token, err := GenerateJwt(&domainuser.Users{
-		Id:   "user-1",
-		Name: "Jane",
-		Role: RoleViewer,
-	}, "log-1")
-	if err != nil {
-		t.Fatalf("generate token: %v", err)
-	}
-
-	gin.SetMode(gin.TestMode)
-	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+token)
-
-	tokenString, claims, err := JwtClaims(ctx)
-	if err != nil || tokenString != token || claims["user_id"] == "" {
-		t.Fatalf("jwt claims: token=%q claims=%+v err=%v", tokenString, claims, err)
 	}
 }

@@ -52,7 +52,7 @@ func GetEnv[T any](key string, def T) T {
 		// support:
 		// - "10s", "5m", "1h" (time.ParseDuration)
 		// - "60" -> 60s
-		// - "eod" -> sisa durasi sampai 23:59:59 (timezone WIB +07:00)
+		// - "eod" -> remaining duration until 23:59:59 (WIB timezone +07:00)
 		if strings.EqualFold(val, "eod") {
 			loc := time.FixedZone("WIB", 7*3600)
 			now := time.Now().In(loc)
