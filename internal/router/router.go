@@ -10,6 +10,7 @@ import (
 	warninghandler "kota-siaga/internal/handlers/http/warning"
 	weatherhandler "kota-siaga/internal/handlers/http/weather"
 	"kota-siaga/internal/integrations/apiindonesia"
+	locationclient "kota-siaga/internal/integrations/locationservice"
 	"kota-siaga/middlewares"
 	"kota-siaga/pkg/logger"
 	"kota-siaga/utils"
@@ -22,7 +23,7 @@ type Routes struct {
 	App *gin.Engine
 }
 
-func NewRoutes(redisClient *redis.Client, apiClient *apiindonesia.Client) *Routes {
+func NewRoutes(redisClient *redis.Client, apiClient *apiindonesia.Client, locationClient *locationclient.Client) *Routes {
 	app := gin.New()
 	app.ForwardedByClientIP = false
 
@@ -42,7 +43,7 @@ func NewRoutes(redisClient *redis.Client, apiClient *apiindonesia.Client) *Route
 		ctx.JSON(http.StatusOK, gin.H{"message": "OK"})
 	})
 
-	locationhandler.Register(app, apiClient, redisClient)
+	locationhandler.Register(app, locationClient, redisClient)
 	weatherhandler.Register(app, apiClient, redisClient)
 	warninghandler.Register(app, apiClient, redisClient)
 	earthquakehandler.Register(app, apiClient, redisClient)

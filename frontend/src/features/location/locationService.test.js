@@ -70,16 +70,6 @@ describe('locationService', () => {
       signal: undefined,
     })
     expect(result.rows[0].name).toBe('PASTEUR')
-  })
-
-  it('normalizes a ten-digit village code to the weather ADM4 format', async () => {
-    vi.spyOn(client, 'request').mockResolvedValue({
-      status: true,
-      data: [{ id: '3273010001', name: 'GEMPOL SARI', code: '3273010001' }],
-    })
-
-    const result = await listVillages('3273010')
-
-    expect(result.rows[0].code).toBe('32.73.01.0001')
+    expect(result.rows[0].code).toBe('32.73.01.1001')
   })
 })

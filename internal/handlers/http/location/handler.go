@@ -40,15 +40,11 @@ func NewLocationHandler(service Service) *Handler {
 	return NewHandler(service)
 }
 
-func Register(router gin.IRouter, client *apiindonesia.Client, redisClient *redis.Client) {
+func Register(router gin.IRouter, client locationservice.UpstreamClient, redisClient *redis.Client) {
 	if router == nil {
 		return
 	}
-	var upstream locationservice.UpstreamClient
-	if client != nil {
-		upstream = client
-	}
-	handler := NewHandler(locationservice.NewService(upstream, redisClient))
+	handler := NewHandler(locationservice.NewService(client, redisClient))
 	router.GET("/api/locations/province", handler.GetProvince)
 	router.GET("/api/locations/city", handler.GetCity)
 	router.GET("/api/locations/district", handler.GetDistrict)

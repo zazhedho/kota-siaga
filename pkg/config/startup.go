@@ -15,6 +15,7 @@ func ValidateStartupConfig(port string) error {
 
 	problems = append(problems, validateRequiredPort(port)...)
 	problems = append(problems, validateAPIIndonesiaConfig()...)
+	problems = append(problems, validateLocationServiceConfig()...)
 	problems = append(problems, validateOptionalRedisConfig()...)
 
 	if len(problems) > 0 {
@@ -47,6 +48,13 @@ func validateAPIIndonesiaConfig() []string {
 	}
 
 	return problems
+}
+
+func validateLocationServiceConfig() []string {
+	if err := ValidateLocationServiceBaseURL(LoadLocationServiceConfig().BaseURL); err != nil {
+		return []string{"LOCATION_SERVICE_BASE_URL must be a valid URL"}
+	}
+	return nil
 }
 
 func validateOptionalRedisConfig() []string {

@@ -34,11 +34,15 @@ func LoadAPIIndonesiaConfig() APIIndonesiaConfig {
 }
 
 func ValidateAPIIndonesiaBaseURL(rawURL string) error {
+	return validateHTTPBaseURL(rawURL, "API_INDONESIA_BASE_URL must be a valid URL")
+}
+
+func validateHTTPBaseURL(rawURL, message string) error {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || parsed.Hostname() == "" ||
 		(!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) ||
 		parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" {
-		return errors.New("API_INDONESIA_BASE_URL must be a valid URL")
+		return errors.New(message)
 	}
 	return nil
 }

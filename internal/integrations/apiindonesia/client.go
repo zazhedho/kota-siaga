@@ -78,7 +78,9 @@ func (c *Client) GetJSON(ctx context.Context, requestPath string, query url.Valu
 	if err != nil {
 		return fmt.Errorf("create API Indonesia request: %w", err)
 	}
-	req.Header.Set("x-api-key", c.APIKey)
+	if c.APIKey != "" {
+		req.Header.Set("x-api-key", c.APIKey)
+	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := withoutRedirects(c.HTTPClient).Do(req)

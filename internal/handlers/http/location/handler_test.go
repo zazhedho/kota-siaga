@@ -195,7 +195,7 @@ func TestRegisterAddsIndependentLocationRoutes(t *testing.T) {
 		"/api/locations/province?page=1&per_page=20",
 		"/api/locations/city?province_id=32&page=1&per_page=20",
 		"/api/locations/district?kabupaten_id=3273&page=1&per_page=20",
-		"/api/locations/village?kecamatan_id=3273010&page=1&per_page=20",
+		"/api/locations/village?kecamatan_id=327301&page=1&per_page=20",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))

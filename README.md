@@ -10,7 +10,7 @@ The application currently exposes these public GET routes:
 - `GET /api/locations/province?page=1&per_page=20`
 - `GET /api/locations/city?province_id=32&page=1&per_page=20`
 - `GET /api/locations/district?kabupaten_id=3273&page=1&per_page=20`
-- `GET /api/locations/village?kecamatan_id=3273010&page=1&per_page=20`
+- `GET /api/locations/village?kecamatan_id=327301&page=1&per_page=20`
 - `GET /api/weather?adm4=32.73.01.1001`
 - `GET /api/warnings?provinsi=Jawa+Barat`
 - `GET /api/earthquakes/latest`
@@ -24,7 +24,7 @@ Copy `.env.example` to `.env`, set `API_INDONESIA_KEY`, then run:
 go run .
 ```
 
-`API_INDONESIA_KEY` is required and must stay server-side. Never expose it in browser code, frontend configuration, logs, or API responses. `API_INDONESIA_BASE_URL` defaults to `https://use.apiindonesia.id`.
+`API_INDONESIA_KEY` is required and must stay server-side. Never expose it in browser code, frontend configuration, logs, or API responses. `API_INDONESIA_BASE_URL` defaults to `https://use.apiindonesia.id`. Location hierarchy requests use `LOCATION_SERVICE_BASE_URL`, which defaults to `https://indonesia.imyourz.com` and does not require an API key.
 
 Redis is optional. If unavailable, the service continues without Redis-backed features.
 
