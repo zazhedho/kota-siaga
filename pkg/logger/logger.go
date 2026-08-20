@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"starter-kit/utils"
+	"kota-siaga/utils"
 
 	"log/slog"
 
@@ -49,7 +49,7 @@ func WriteLog(level int, msg ...any) {
 		return
 	}
 
-	if logLevel, _ := strconv.Atoi(utils.GetEnv("LOG_LEVEL", "5")); logLevel < level {
+	if configuredLogLevel() < level {
 		return
 	}
 
@@ -80,7 +80,7 @@ func WriteLogWithContext(ctx *gin.Context, level int, msg ...any) {
 		return
 	}
 
-	if logLevel, _ := strconv.Atoi(utils.GetEnv("LOG_LEVEL", "6")); logLevel < level {
+	if configuredLogLevel() < level {
 		return
 	}
 
@@ -120,6 +120,15 @@ func WriteLogWithContext(ctx *gin.Context, level int, msg ...any) {
 		fmt.Sprint(msg...),
 		fields...,
 	)
+}
+
+func configuredLogLevel() int {
+	const fallback = 5
+	level, err := strconv.Atoi(utils.GetEnv("LOG_LEVEL", strconv.Itoa(fallback)))
+	if err != nil {
+		return fallback
+	}
+	return level
 }
 
 func getLogger() *slog.Logger {

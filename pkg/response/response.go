@@ -2,9 +2,9 @@ package response
 
 import (
 	"fmt"
+	"kota-siaga/pkg/messages"
 	"math"
 	"net/http"
-	"starter-kit/pkg/messages"
 
 	"github.com/google/uuid"
 )
@@ -71,14 +71,6 @@ func InternalServerError(logId uuid.UUID) *ApiResponse {
 	res := ErrorResponse(http.StatusInternalServerError, messages.MsgSomethingWrong, logId, fmt.Sprintf(messages.MsgInternal, logId.String()))
 	res.Message = messages.MsgSomethingWrong
 	return res
-}
-
-func Unauthorized(logId uuid.UUID, publicError string) *ApiResponse {
-	return ErrorResponse(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), logId, publicError)
-}
-
-func Forbidden(logId uuid.UUID, publicError string) *ApiResponse {
-	return ErrorResponse(http.StatusForbidden, http.StatusText(http.StatusForbidden), logId, publicError)
 }
 
 func errorTitle(code int) string {

@@ -56,3 +56,16 @@ func NormalizeUUIDPointer(input string) *string {
 
 	return &value
 }
+
+func GetRequestID(ctx *gin.Context) string {
+	if raw, ok := ctx.Get(CtxKeyId); ok && raw != nil {
+		switch v := raw.(type) {
+		case uuid.UUID:
+			return v.String()
+		case string:
+			return strings.TrimSpace(v)
+		}
+	}
+
+	return GenerateLogId(ctx).String()
+}

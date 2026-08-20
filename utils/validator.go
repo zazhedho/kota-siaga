@@ -2,14 +2,9 @@ package utils
 
 import (
 	"errors"
-	"fmt"
-	"net/http"
 	"reflect"
-	"starter-kit/pkg/response"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 )
 
 type ValidateMessage struct {
@@ -55,23 +50,4 @@ func ValidateError(err error, reflectType reflect.Type, tagName string) []Valida
 		return out
 	}
 	return []ValidateMessage{{"", err.Error()}}
-}
-
-func ValidateUUID(ctx *gin.Context, logID uuid.UUID) (string, error) {
-	id := ctx.Param("id")
-	if id == "" {
-		res := response.Response(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), logID, nil)
-		res.Error = "ID parameter is required"
-		ctx.JSON(http.StatusBadRequest, res)
-		return "", fmt.Errorf("missing ID")
-	}
-
-	if _, err := uuid.Parse(id); err != nil {
-		res := response.Response(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), logID, nil)
-		res.Error = response.Errors{Code: http.StatusBadRequest, Message: "ID must be a valid UUID"}
-		ctx.JSON(http.StatusBadRequest, res)
-		return "", fmt.Errorf("invalid UUID")
-	}
-
-	return id, nil
 }

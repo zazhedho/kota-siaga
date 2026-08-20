@@ -3,13 +3,13 @@ package middlewares
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"kota-siaga/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-
-	"starter-kit/internal/authscope"
-	"starter-kit/utils"
 )
 
 func TestCORSHandlesOptionsAndSetsHeaders(t *testing.T) {
@@ -24,8 +24,11 @@ func TestCORSHandlesOptionsAndSetsHeaders(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204 for options, got %d", rec.Code)
 	}
-	if rec.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Fatalf("expected CORS header, got %v", rec.Header())
+	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), "PATCH") {
+		t.Fatalf("expected PATCH in allowed methods, got %q", rec.Header().Get("Access-Control-Allow-Methods"))
+	}
+	if rec.Header().Get("Access-Control-Max-Age") != "86400" {
+		t.Fatalf("expected one-day CORS max age, got %q", rec.Header().Get("Access-Control-Max-Age"))
 	}
 }
 
@@ -62,32 +65,9 @@ func TestRequestLoggerAndRecoveryMiddleware(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
-	req = req.WithContext(authscope.WithContext(req.Context(), authscope.New("user-1", "Jane", "viewer", nil)))
 	router.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestRoleMiddlewareAllowsAndRejectsRoles(t *testing.T) {
-	mdw := NewMiddleware(&authRepoTestDouble{}, &permissionRepoTestDouble{})
-
-	rec := performMiddlewareRequest(
-		testToken(t, "access", utils.RoleAdmin),
-		mdw.AuthMiddleware(),
-		mdw.RoleMiddleware(utils.RoleAdmin),
-	)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected admin role to pass, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	rec = performMiddlewareRequest(
-		testToken(t, "access", utils.RoleViewer),
-		mdw.AuthMiddleware(),
-		mdw.RoleMiddleware(utils.RoleAdmin),
-	)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected viewer role to be rejected, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

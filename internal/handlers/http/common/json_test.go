@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"starter-kit/utils"
+	"kota-siaga/utils"
 
 	"github.com/gin-gonic/gin"
 )

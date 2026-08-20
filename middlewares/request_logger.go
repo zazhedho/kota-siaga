@@ -3,9 +3,9 @@ package middlewares
 import (
 	"fmt"
 	"net/http"
-	"starter-kit/internal/authscope"
-	"starter-kit/pkg/logger"
 	"time"
+
+	"kota-siaga/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,16 +23,13 @@ func RequestLogger() gin.HandlerFunc {
 			path = ctx.Request.URL.Path
 		}
 
-		userID := authscope.FromContext(ctx.Request.Context()).UserID
-
 		msg := fmt.Sprintf(
-			"[Request]; %s %s; status=%d; latency_ms=%d; ip=%s; user_id=%s",
+			"[Request]; %s %s; status=%d; latency_ms=%d; ip=%s",
 			ctx.Request.Method,
 			path,
 			status,
 			latency.Milliseconds(),
 			ctx.ClientIP(),
-			userID,
 		)
 
 		switch {

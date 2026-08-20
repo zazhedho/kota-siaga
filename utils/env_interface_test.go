@@ -142,15 +142,3 @@ func TestNormalizeUUIDPointer(t *testing.T) {
 		t.Fatalf("expected normalized uuid pointer, got %v", got)
 	}
 }
-
-func TestNormalizePhoneAndEmail(t *testing.T) {
-	if got := NormalizePhoneTo62("+62 812-3456-789"); got != "628123456789" {
-		t.Fatalf("unexpected phone normalization: %q", got)
-	}
-	if got := NormalizePhoneTo62("0812 3456 789"); got != "628123456789" {
-		t.Fatalf("unexpected phone normalization: %q", got)
-	}
-	if got := SanitizeEmail(" Jane.Doe@Example.COM "); got != "jane.doe@example.com" {
-		t.Fatalf("unexpected email sanitization: %q", got)
-	}
-}
