@@ -1,8 +1,10 @@
 import {
-  listProvinces,
-  listCities,
-  listDistricts,
-  listVillages,
+	listProvinces,
+	listCities,
+	listDistricts,
+	listVillages,
+	searchLocations,
+	resolveLocation,
 } from './locationService'
 import * as client from '../../shared/api/client'
 
@@ -58,7 +60,7 @@ describe('locationService', () => {
     expect(result.rows[0].name).toBe('SUKAJADI')
   })
 
-  it('calls listVillages with kecamatan_id', async () => {
+	it('calls listVillages with kecamatan_id', async () => {
     const spy = vi.spyOn(client, 'request').mockResolvedValue({
       status: true,
       data: [{ id: '3273010100', name: 'PASTEUR', code: '32.73.01.1001' }],
@@ -70,6 +72,36 @@ describe('locationService', () => {
       signal: undefined,
     })
     expect(result.rows[0].name).toBe('PASTEUR')
-    expect(result.rows[0].code).toBe('32.73.01.1001')
-  })
+		expect(result.rows[0].code).toBe('32.73.01.1001')
+	})
+
+	it('searches locations with a bounded query', async () => {
+		const signal = new AbortController().signal
+		const spy = vi.spyOn(client, 'request').mockResolvedValue({
+			status: true,
+			data: [{ id: '3273011001', code: '32.73.01.1001', name: 'PASTEUR', level: 'village' }],
+		})
+
+		const result = await searchLocations('pasteur', 10, signal)
+		expect(spy).toHaveBeenCalledWith('/locations/search', {
+			params: { q: 'pasteur', limit: 10 },
+			signal,
+		})
+		expect(result[0].name).toBe('PASTEUR')
+	})
+
+	it('resolves a selected village path', async () => {
+		const signal = new AbortController().signal
+		const spy = vi.spyOn(client, 'request').mockResolvedValue({
+			status: true,
+			data: { village: { id: '3273011001', name: 'PASTEUR' } },
+		})
+
+		const result = await resolveLocation('32.73.01.1001', signal)
+		expect(spy).toHaveBeenCalledWith('/locations/resolve', {
+			params: { code: '32.73.01.1001' },
+			signal,
+		})
+		expect(result.village.name).toBe('PASTEUR')
+	})
 })

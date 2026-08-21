@@ -108,6 +108,97 @@ func TestClientPaginatesProviderCollectionLocally(t *testing.T) {
 	}
 }
 
+func TestClientSearchLocations(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body string
+		switch r.URL.Path {
+		case "/api/locations/search":
+			if got := r.URL.Query().Get("q"); got != "pasteur" {
+				t.Errorf("expected query pasteur, got %q", got)
+			}
+			if got := r.URL.Query().Get("limit"); got != "10" {
+				t.Errorf("expected limit 10, got %q", got)
+			}
+			body = `{"data":[{"code":"32.73.01","full_code":"32.73.01","name":"Sukasari","level":"district"},{"code":"32.73.01.1001","full_code":"32.73.01.1001","name":"Pasteur","level":"village","postal_code":"40152"}]}`
+		case "/api/locations/32.73.01":
+			body = `{"data":{"code":"32.73.01","full_code":"32.73.01","name":"Sukasari","level":"district","parent_code":"32.73"}}`
+		case "/api/locations/32.73.01.1001":
+			body = `{"data":{"code":"32.73.01.1001","full_code":"32.73.01.1001","name":"Pasteur","level":"village","parent_code":"32.73.01","postal_code":"40152"}}`
+		case "/api/locations/32.73":
+			body = `{"data":{"code":"32.73","full_code":"32.73","name":"Kota Bandung","level":"regency","parent_code":"32"}}`
+		case "/api/locations/32":
+			body = `{"data":{"code":"32","full_code":"32","name":"Jawa Barat","level":"province"}}`
+		default:
+			t.Errorf("unexpected provider path %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(config.LocationServiceConfig{BaseURL: server.URL, Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	got, err := client.SearchLocations(context.Background(), "pasteur", 10)
+	if err != nil {
+		t.Fatalf("SearchLocations() error = %v", err)
+	}
+	if len(got) != 2 || got[0].ID != "327301" || got[0].Code != "32.73.01" || got[0].Level != "district" || got[0].Hierarchy != "Sukasari — Kota Bandung, Jawa Barat" {
+		t.Fatalf("unexpected search result: %+v", got)
+	}
+	if got[1].ID != "3273011001" || got[1].Code != "32.73.01.1001" || got[1].Level != "village" || got[1].PostalCode != "40152" || got[1].Hierarchy != "Pasteur — Sukasari, Kota Bandung, Jawa Barat" {
+		t.Fatalf("unexpected village search result: %+v", got[1])
+	}
+}
+
+func TestClientResolveLocation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body string
+		switch r.URL.Path {
+		case "/api/locations/32.73.01.1001":
+			body = `{"data":{"code":"32.73.01.1001","full_code":"32.73.01.1001","name":"Sukarasa","level":"village","parent_code":"32.73.01","postal_code":"40152"}}`
+		case "/api/locations/32.73.01":
+			body = `{"data":{"code":"32.73.01","full_code":"32.73.01","name":"Sukasari","level":"district","parent_code":"32.73"}}`
+		case "/api/locations/32.73":
+			body = `{"data":{"code":"32.73","full_code":"32.73","name":"Kota Bandung","level":"regency","parent_code":"32"}}`
+		case "/api/locations/32":
+			body = `{"data":{"code":"32","full_code":"32","name":"Jawa Barat","level":"province"}}`
+		default:
+			t.Errorf("unexpected provider path %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = fmt.Fprint(w, body)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(config.LocationServiceConfig{BaseURL: server.URL, Timeout: time.Second})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	got, err := client.ResolveLocation(context.Background(), "32.73.01.1001")
+	if err != nil {
+		t.Fatalf("ResolveLocation() error = %v", err)
+	}
+	if got.Level != "village" || got.Province.ID != "32" || got.Province.Name != "Jawa Barat" || got.City.ID != "3273" || got.District.ID != "327301" || got.Village == nil || got.Village.ID != "3273011001" || got.Village.PostalCode != "40152" {
+		t.Fatalf("unexpected resolved path: %+v", got)
+	}
+
+	districtPath, err := client.ResolveLocation(context.Background(), "32.73.01")
+	if err != nil {
+		t.Fatalf("ResolveLocation(district) error = %v", err)
+	}
+	if districtPath.Level != "district" || districtPath.District.ID != "327301" || districtPath.Village != nil {
+		t.Fatalf("unexpected district path: %+v", districtPath)
+	}
+}
+
 func TestDottedCodePreservesAlreadyDottedValues(t *testing.T) {
 	for _, code := range []string{"32", "32.73", "32.73.01", "32.73.01.1001"} {
 		if got := dottedCode(code); got != code {

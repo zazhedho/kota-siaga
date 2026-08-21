@@ -20,7 +20,7 @@ end
 return current`
 
 func TestNewRoutesRegistersExactPublicRoutes(t *testing.T) {
-	routes := NewRoutes(nil, nil, nil)
+	routes := NewRoutes(nil, nil, nil, nil)
 	registered := map[string]bool{}
 	for _, route := range routes.App.Routes() {
 		registered[route.Method+" "+route.Path] = true
@@ -32,6 +32,8 @@ func TestNewRoutesRegistersExactPublicRoutes(t *testing.T) {
 		"GET /api/locations/city":     true,
 		"GET /api/locations/district": true,
 		"GET /api/locations/village":  true,
+		"GET /api/locations/search":   true,
+		"GET /api/locations/resolve":  true,
 		"GET /api/weather":            true,
 		"GET /api/warnings":           true,
 		"GET /api/earthquakes/latest": true,
@@ -48,7 +50,7 @@ func TestNewRoutesRegistersExactPublicRoutes(t *testing.T) {
 }
 
 func TestNewRoutesExcludesCopiedStarterKitRoutes(t *testing.T) {
-	routes := NewRoutes(nil, nil, nil)
+	routes := NewRoutes(nil, nil, nil, nil)
 	for _, copiedPath := range []string{
 		"/api/user/login",
 		"/api/roles",
@@ -64,7 +66,7 @@ func TestNewRoutesExcludesCopiedStarterKitRoutes(t *testing.T) {
 }
 
 func TestNewRoutesRegistersHealthcheck(t *testing.T) {
-	routes := NewRoutes(nil, nil, nil)
+	routes := NewRoutes(nil, nil, nil, nil)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
@@ -76,7 +78,7 @@ func TestNewRoutesRegistersHealthcheck(t *testing.T) {
 }
 
 func TestNewRoutesUsesCustomRecoveryForPanics(t *testing.T) {
-	routes := NewRoutes(nil, nil, nil)
+	routes := NewRoutes(nil, nil, nil, nil)
 	routes.App.GET("/panic", func(_ *gin.Context) {
 		panic("boom")
 	})
@@ -104,7 +106,7 @@ func TestNewRoutesUsesRemoteAddrForPublicRateLimitIdentity(t *testing.T) {
 	key := "rate_limit:public:1.2.3.4"
 	mock.ExpectEval(routerAtomicRateLimitScript, []string{key}, time.Minute.Milliseconds()).SetVal(int64(1))
 
-	routes := NewRoutes(client, nil, nil)
+	routes := NewRoutes(client, nil, nil, nil)
 	routes.App.GET("/identity", func(ctx *gin.Context) {
 		ctx.Status(http.StatusNoContent)
 	})

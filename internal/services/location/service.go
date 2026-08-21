@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	sharedcache "kota-siaga/internal/cache"
 	locationcache "kota-siaga/internal/cache/location"
@@ -14,9 +16,18 @@ import (
 )
 
 var (
-	ErrInvalidPagination = errors.New("invalid pagination")
-	ErrInvalidParentID   = errors.New("invalid parent ID")
-	ErrLocationClient    = errors.New("location upstream client is not configured")
+	ErrInvalidPagination   = errors.New("invalid pagination")
+	ErrInvalidParentID     = errors.New("invalid parent ID")
+	ErrInvalidSearchQuery  = errors.New("invalid location search query")
+	ErrInvalidSearchLimit  = errors.New("invalid location search limit")
+	ErrInvalidLocationCode = errors.New("invalid location code")
+	ErrLocationClient      = errors.New("location upstream client is not configured")
+)
+
+const (
+	DefaultSearchLimit = 10
+	MaxSearchLimit     = 10
+	MinSearchLength    = 3
 )
 
 type UpstreamClient interface {
@@ -24,6 +35,8 @@ type UpstreamClient interface {
 	ListCities(context.Context, string, int, int) (dto.Page[dto.City], error)
 	ListDistricts(context.Context, string, int, int) (dto.Page[dto.District], error)
 	ListVillages(context.Context, string, int, int) (dto.Page[dto.Village], error)
+	SearchLocations(context.Context, string, int) ([]dto.LocationSearchItem, error)
+	ResolveLocation(context.Context, string) (dto.LocationPath, error)
 }
 
 type Service struct {
@@ -61,6 +74,101 @@ func ValidateParentID(id string) error {
 		}
 	}
 	return nil
+}
+
+func ValidateSearchQuery(query string) error {
+	if utf8.RuneCountInString(strings.TrimSpace(query)) < MinSearchLength {
+		return fmt.Errorf("%w: query must contain at least %d characters", ErrInvalidSearchQuery, MinSearchLength)
+	}
+	return nil
+}
+
+func ValidateSearchLimit(limit int) error {
+	if limit < 1 || limit > MaxSearchLimit {
+		return fmt.Errorf("%w: limit must be between 1 and %d", ErrInvalidSearchLimit, MaxSearchLimit)
+	}
+	return nil
+}
+
+func ValidateLocationCode(code string) error {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("%w: code is required", ErrInvalidLocationCode)
+	}
+
+	if strings.Contains(code, ".") {
+		parts := strings.Split(code, ".")
+		if len(parts) != 3 && len(parts) != 4 {
+			return fmt.Errorf("%w: code must contain three or four numeric segments", ErrInvalidLocationCode)
+		}
+		for _, part := range parts {
+			if !isNumeric(part) {
+				return fmt.Errorf("%w: code must contain only numeric segments", ErrInvalidLocationCode)
+			}
+		}
+		return nil
+	}
+
+	if (len(code) != 6 && len(code) != 7 && len(code) != 10) || !isNumeric(code) {
+		return fmt.Errorf("%w: code must be a district or village code", ErrInvalidLocationCode)
+	}
+	return nil
+}
+
+func ValidateVillageCode(code string) error {
+	return ValidateLocationCode(code)
+}
+
+func isNumeric(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Service) SearchLocations(ctx context.Context, query string, limit int) ([]dto.LocationSearchItem, error) {
+	if err := ValidateSearchQuery(query); err != nil {
+		return nil, err
+	}
+	if err := ValidateSearchLimit(limit); err != nil {
+		return nil, err
+	}
+	if err := s.validateClient(); err != nil {
+		return nil, err
+	}
+
+	items, err := s.Client.SearchLocations(ctx, strings.TrimSpace(query), limit)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]dto.LocationSearchItem, 0, len(items))
+	for _, item := range items {
+		level := strings.ToLower(strings.TrimSpace(item.Level))
+		if level != "district" && level != "village" {
+			continue
+		}
+		results = append(results, item)
+		if len(results) == limit {
+			break
+		}
+	}
+	return results, nil
+}
+
+func (s *Service) ResolveLocation(ctx context.Context, code string) (dto.LocationPath, error) {
+	if err := ValidateLocationCode(code); err != nil {
+		return dto.LocationPath{}, err
+	}
+	if err := s.validateClient(); err != nil {
+		return dto.LocationPath{}, err
+	}
+	return s.Client.ResolveLocation(ctx, strings.TrimSpace(code))
 }
 
 func (s *Service) ListProvinces(ctx context.Context, page, perPage int) (dto.Page[dto.Province], error) {

@@ -12,6 +12,7 @@ import (
 
 	"kota-siaga/infrastructure/database"
 	"kota-siaga/internal/integrations/apiindonesia"
+	"kota-siaga/internal/integrations/bmkg"
 	locationclient "kota-siaga/internal/integrations/locationservice"
 	"kota-siaga/internal/router"
 	"kota-siaga/pkg/config"
@@ -71,6 +72,9 @@ func main() {
 	apiClient, err := apiindonesia.NewClient(config.LoadAPIIndonesiaConfig())
 	FailOnError(err, "Invalid API Indonesia configuration")
 
+	earthquakeClient, err := bmkg.NewClient(config.LoadBMKGConfig())
+	FailOnError(err, "Invalid BMKG configuration")
+
 	locationClient, err := locationclient.NewClient(config.LoadLocationServiceConfig())
 	FailOnError(err, "Invalid location service configuration")
 
@@ -86,7 +90,7 @@ func main() {
 		logger.WriteLog(logger.LogLevelInfo, "Redis initialized")
 	}
 
-	routes := router.NewRoutes(redisClient, apiClient, locationClient)
+	routes := router.NewRoutes(redisClient, apiClient, locationClient, earthquakeClient)
 	logger.WriteLog(logger.LogLevelInfo, "Public routes registered")
 
 	FailOnError(routes.App.Run(fmt.Sprintf(":%s", port)), "Failed to run service")

@@ -4,31 +4,28 @@ function fallback(value) {
 
 export function formatEarthquakeDateTime(value, locale = 'id') {
   const rawValue = String(value ?? '').trim()
-  const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
+  const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/)
   if (!match) return fallback(rawValue)
 
-  const [, yearValue, monthValue, dayValue, hour, minute] = match
-  const year = Number(yearValue)
-  const month = Number(monthValue)
-  const day = Number(dayValue)
-  const date = new Date(Date.UTC(year, month - 1, day))
+  const [, , , , , , timezone] = match
+  const normalizedValue = rawValue.replace(' ', 'T')
+  const date = new Date(`${normalizedValue}${timezone ? '' : '+07:00'}`)
+  if (Number.isNaN(date.getTime())) return fallback(rawValue)
 
-  if (
-    Number.isNaN(date.getTime()) ||
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    return fallback(rawValue)
-  }
+  const language = locale === 'en' ? 'en-US' : 'id-ID'
 
   return {
-    date: new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'id-ID', {
+    date: new Intl.DateTimeFormat(language, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
-      timeZone: 'UTC',
+      timeZone: 'Asia/Jakarta',
     }).format(date),
-    time: locale === 'en' ? `${hour}:${minute}` : `${hour}.${minute}`,
+    time: new Intl.DateTimeFormat(language, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone: 'Asia/Jakarta',
+    }).format(date).replace(':', locale === 'en' ? ':' : '.'),
   }
 }

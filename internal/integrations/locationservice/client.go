@@ -3,7 +3,9 @@ package locationservice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"kota-siaga/internal/dto"
@@ -19,12 +21,17 @@ type sourceLocation struct {
 	Code       string `json:"code"`
 	FullCode   string `json:"full_code"`
 	Name       string `json:"name"`
+	Level      string `json:"level"`
 	ParentCode string `json:"parent_code"`
 	PostalCode string `json:"postal_code"`
 }
 
 type sourceResponse struct {
 	Data []sourceLocation `json:"data"`
+}
+
+type sourceDetailResponse struct {
+	Data sourceLocation `json:"data"`
 }
 
 func NewClient(clientConfig config.LocationServiceConfig) (*Client, error) {
@@ -94,6 +101,118 @@ func (c *Client) ListVillages(ctx context.Context, districtID string, page, perP
 	return paginate(villages, page, perPage), nil
 }
 
+func (c *Client) SearchLocations(ctx context.Context, query string, limit int) ([]dto.LocationSearchItem, error) {
+	items, err := c.list(ctx, "api/locations/search", url.Values{
+		"q":     {query},
+		"limit": {strconv.Itoa(limit)},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cache := make(map[string]sourceLocation)
+	results := make([]dto.LocationSearchItem, 0, len(items))
+	for _, item := range items {
+		code := providerCode(item)
+		result := dto.LocationSearchItem{
+			ID:         compactCode(code),
+			Code:       code,
+			Name:       item.Name,
+			Level:      item.Level,
+			PostalCode: item.PostalCode,
+		}
+		if isSearchableLevel(item.Level) {
+			path, err := c.resolveLocation(ctx, code, cache)
+			if err != nil {
+				return nil, err
+			}
+			result.Hierarchy = formatHierarchy(path)
+		}
+		results = append(results, result)
+		if limit > 0 && len(results) == limit {
+			break
+		}
+	}
+	return results, nil
+}
+
+func (c *Client) ResolveLocation(ctx context.Context, code string) (dto.LocationPath, error) {
+	return c.resolveLocation(ctx, code, make(map[string]sourceLocation))
+}
+
+func (c *Client) resolveLocation(ctx context.Context, code string, cache map[string]sourceLocation) (dto.LocationPath, error) {
+	selected, err := c.getCached(ctx, code, cache)
+	if err != nil {
+		return dto.LocationPath{}, err
+	}
+
+	switch strings.ToLower(strings.TrimSpace(selected.Level)) {
+	case "district":
+		city, err := c.getCached(ctx, selected.ParentCode, cache)
+		if err != nil {
+			return dto.LocationPath{}, err
+		}
+		province, err := c.getCached(ctx, city.ParentCode, cache)
+		if err != nil {
+			return dto.LocationPath{}, err
+		}
+		return dto.LocationPath{
+			Level:    "district",
+			Province: mapProvince(province),
+			City:     mapCity(city, providerCode(province)),
+			District: mapDistrict(selected, providerCode(city)),
+		}, nil
+	case "village":
+		district, err := c.getCached(ctx, selected.ParentCode, cache)
+		if err != nil {
+			return dto.LocationPath{}, err
+		}
+		city, err := c.getCached(ctx, district.ParentCode, cache)
+		if err != nil {
+			return dto.LocationPath{}, err
+		}
+		province, err := c.getCached(ctx, city.ParentCode, cache)
+		if err != nil {
+			return dto.LocationPath{}, err
+		}
+		village := mapVillage(selected, providerCode(district))
+		return dto.LocationPath{
+			Level:    "village",
+			Province: mapProvince(province),
+			City:     mapCity(city, providerCode(province)),
+			District: mapDistrict(district, providerCode(city)),
+			Village:  &village,
+		}, nil
+	default:
+		return dto.LocationPath{}, fmt.Errorf("unsupported location level %q", selected.Level)
+	}
+}
+
+func (c *Client) getCached(ctx context.Context, code string, cache map[string]sourceLocation) (sourceLocation, error) {
+	key := dottedCode(strings.TrimSpace(code))
+	if item, ok := cache[key]; ok {
+		return item, nil
+	}
+	item, err := c.get(ctx, code)
+	if err != nil {
+		return sourceLocation{}, err
+	}
+	cache[key] = item
+	return item, nil
+}
+
+func isSearchableLevel(level string) bool {
+	level = strings.ToLower(strings.TrimSpace(level))
+	return level == "district" || level == "village"
+}
+
+func formatHierarchy(path dto.LocationPath) string {
+	if path.Village != nil {
+		return fmt.Sprintf("%s — %s, %s, %s", path.Village.Name, path.District.Name, path.City.Name, path.Province.Name)
+	}
+	return fmt.Sprintf("%s — %s, %s", path.District.Name, path.City.Name, path.Province.Name)
+}
+
 func (c *Client) list(ctx context.Context, requestPath string, query url.Values) ([]sourceLocation, error) {
 	if c == nil || c.transport == nil {
 		return nil, errors.New("location service client is not configured")
@@ -102,6 +221,21 @@ func (c *Client) list(ctx context.Context, requestPath string, query url.Values)
 	var response sourceResponse
 	if err := c.transport.GetJSON(ctx, requestPath, query, &response); err != nil {
 		return nil, err
+	}
+	return response.Data, nil
+}
+
+func (c *Client) get(ctx context.Context, code string) (sourceLocation, error) {
+	if c == nil || c.transport == nil {
+		return sourceLocation{}, errors.New("location service client is not configured")
+	}
+	if strings.TrimSpace(code) == "" {
+		return sourceLocation{}, errors.New("location code is empty")
+	}
+
+	var response sourceDetailResponse
+	if err := c.transport.GetJSON(ctx, "api/locations/"+dottedCode(code), nil, &response); err != nil {
+		return sourceLocation{}, err
 	}
 	return response.Data, nil
 }

@@ -15,11 +15,19 @@ func ValidateStartupConfig(port string) error {
 
 	problems = append(problems, validateRequiredPort(port)...)
 	problems = append(problems, validateAPIIndonesiaConfig()...)
+	problems = append(problems, validateBMKGConfig()...)
 	problems = append(problems, validateLocationServiceConfig()...)
 	problems = append(problems, validateOptionalRedisConfig()...)
 
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "; "))
+	}
+	return nil
+}
+
+func validateBMKGConfig() []string {
+	if err := ValidateBMKGBaseURL(LoadBMKGConfig().BaseURL); err != nil {
+		return []string{"BMKG_BASE_URL must be a valid URL"}
 	}
 	return nil
 }

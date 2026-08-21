@@ -24,7 +24,7 @@ Copy `.env.example` to `.env`, set `API_INDONESIA_KEY`, then run:
 go run .
 ```
 
-`API_INDONESIA_KEY` is required and must stay server-side. Never expose it in browser code, frontend configuration, logs, or API responses. `API_INDONESIA_BASE_URL` defaults to `https://use.apiindonesia.id`. Location hierarchy requests use `LOCATION_SERVICE_BASE_URL`, which defaults to `https://indonesia.imyourz.com` and does not require an API key.
+`API_INDONESIA_KEY` is required and must stay server-side. Never expose it in browser code, frontend configuration, logs, or API responses. `API_INDONESIA_BASE_URL` defaults to `https://use.apiindonesia.id`. Earthquake requests use BMKG open data through `BMKG_BASE_URL`, which defaults to `https://data.bmkg.go.id` and does not require an API key. Location hierarchy requests use `LOCATION_SERVICE_BASE_URL`, which defaults to `https://indonesia.imyourz.com` and does not require an API key.
 
 Redis is optional. If unavailable, the service continues without Redis-backed features.
 

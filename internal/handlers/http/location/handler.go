@@ -12,6 +12,7 @@ import (
 	"kota-siaga/internal/integrations/apiindonesia"
 	locationservice "kota-siaga/internal/services/location"
 	"kota-siaga/pkg/logger"
+	"kota-siaga/pkg/messages"
 	"kota-siaga/pkg/response"
 	"kota-siaga/utils"
 
@@ -24,6 +25,8 @@ type Service interface {
 	ListCities(context.Context, string, int, int) (dto.Page[dto.City], error)
 	ListDistricts(context.Context, string, int, int) (dto.Page[dto.District], error)
 	ListVillages(context.Context, string, int, int) (dto.Page[dto.Village], error)
+	SearchLocations(context.Context, string, int) ([]dto.LocationSearchItem, error)
+	ResolveLocation(context.Context, string) (dto.LocationPath, error)
 }
 
 type Handler struct {
@@ -49,6 +52,8 @@ func Register(router gin.IRouter, client locationservice.UpstreamClient, redisCl
 	router.GET("/api/locations/city", handler.GetCity)
 	router.GET("/api/locations/district", handler.GetDistrict)
 	router.GET("/api/locations/village", handler.GetVillage)
+	router.GET("/api/locations/search", handler.Search)
+	router.GET("/api/locations/resolve", handler.Resolve)
 }
 
 func (h *Handler) GetProvince(ctx *gin.Context) {
@@ -142,6 +147,57 @@ func (h *Handler) GetVillage(ctx *gin.Context) {
 	writePage(ctx, result.Total, result.Page, result.PerPage, result.Data)
 }
 
+func (h *Handler) Search(ctx *gin.Context) {
+	query := ctx.Query("q")
+	limit := locationservice.DefaultSearchLimit
+	if rawLimit, ok := ctx.GetQuery("limit"); ok {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			writeInvalidQuery(ctx, fmt.Errorf("%w: limit must be an integer", locationservice.ErrInvalidSearchLimit))
+			return
+		}
+		limit = parsed
+	}
+	if err := locationservice.ValidateSearchQuery(query); err != nil {
+		writeInvalidQuery(ctx, err)
+		return
+	}
+	if err := locationservice.ValidateSearchLimit(limit); err != nil {
+		writeInvalidQuery(ctx, err)
+		return
+	}
+	if h == nil || h.Service == nil {
+		handleServiceError(ctx, locationservice.ErrLocationClient)
+		return
+	}
+
+	result, err := h.Service.SearchLocations(ctx.Request.Context(), query, limit)
+	if err != nil {
+		handleServiceError(ctx, err)
+		return
+	}
+	writeData(ctx, result)
+}
+
+func (h *Handler) Resolve(ctx *gin.Context) {
+	code := ctx.Query("code")
+	if err := locationservice.ValidateLocationCode(code); err != nil {
+		writeInvalidQuery(ctx, err)
+		return
+	}
+	if h == nil || h.Service == nil {
+		handleServiceError(ctx, locationservice.ErrLocationClient)
+		return
+	}
+
+	result, err := h.Service.ResolveLocation(ctx.Request.Context(), code)
+	if err != nil {
+		handleServiceError(ctx, err)
+		return
+	}
+	writeData(ctx, result)
+}
+
 func parsePagination(ctx *gin.Context) (int, int, error) {
 	page, err := queryInt(ctx, "page")
 	if err != nil {
@@ -181,6 +237,10 @@ func writePage(ctx *gin.Context, total, page, perPage int, data any) {
 	ctx.JSON(http.StatusOK, response.PaginationResponse(http.StatusOK, total, page, perPage, utils.GenerateLogId(ctx), data))
 }
 
+func writeData(ctx *gin.Context, data any) {
+	ctx.JSON(http.StatusOK, response.Response(http.StatusOK, messages.MsgSuccess, utils.GenerateLogId(ctx), data))
+}
+
 func writeInvalidQuery(ctx *gin.Context, err error) {
 	logID := utils.GenerateLogId(ctx)
 	res := response.ErrorResponse(http.StatusBadRequest, "Invalid location query", logID, err.Error())
@@ -188,7 +248,11 @@ func writeInvalidQuery(ctx *gin.Context, err error) {
 }
 
 func handleServiceError(ctx *gin.Context, err error) {
-	if errors.Is(err, locationservice.ErrInvalidPagination) || errors.Is(err, locationservice.ErrInvalidParentID) {
+	if errors.Is(err, locationservice.ErrInvalidPagination) ||
+		errors.Is(err, locationservice.ErrInvalidParentID) ||
+		errors.Is(err, locationservice.ErrInvalidSearchQuery) ||
+		errors.Is(err, locationservice.ErrInvalidSearchLimit) ||
+		errors.Is(err, locationservice.ErrInvalidLocationCode) {
 		writeInvalidQuery(ctx, err)
 		return
 	}

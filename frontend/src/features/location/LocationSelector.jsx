@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocale } from '../../shared/i18n'
+import { ComboBox } from '../../components/common/ComboBox'
+import { getApiErrorMessage } from '../../shared/api/client'
 import {
-  listProvinces,
-  listCities,
-  listDistricts,
-  listVillages,
+	listProvinces,
+	listCities,
+	listDistricts,
+	listVillages,
+	searchLocations,
+	resolveLocation,
 } from './locationService'
 
 export function LocationSelector({ onComplete, initialLocation = null }) {
@@ -30,10 +34,21 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
   const [errorDistrict, setErrorDistrict] = useState(null)
   const [errorVillage, setErrorVillage] = useState(null)
 
+  const [directSearchOpen, setDirectSearchOpen] = useState(false)
+  const [directSearchQuery, setDirectSearchQuery] = useState('')
+  const [directSearchOptions, setDirectSearchOptions] = useState([])
+  const [directSearchValue, setDirectSearchValue] = useState('')
+  const [loadingDirectSearch, setLoadingDirectSearch] = useState(false)
+  const [errorDirectSearch, setErrorDirectSearch] = useState(null)
+
   const provinceAbortRef = useRef(null)
   const cityAbortRef = useRef(null)
   const districtAbortRef = useRef(null)
   const villageAbortRef = useRef(null)
+  const directSearchTimerRef = useRef(null)
+  const directSearchAbortRef = useRef(null)
+  const directResolveAbortRef = useRef(null)
+  const directSearchRequestRef = useRef(0)
   const restoredRef = useRef(false)
 
   // Load provinces on mount
@@ -64,6 +79,9 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
       if (cityAbortRef.current) cityAbortRef.current.abort()
       if (districtAbortRef.current) districtAbortRef.current.abort()
       if (villageAbortRef.current) villageAbortRef.current.abort()
+      if (directSearchTimerRef.current) window.clearTimeout(directSearchTimerRef.current)
+      if (directSearchAbortRef.current) directSearchAbortRef.current.abort()
+      if (directResolveAbortRef.current) directResolveAbortRef.current.abort()
     }
   }, [fetchProvinces])
 
@@ -130,6 +148,115 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     }
   }, [t])
 
+  const clearDirectSearch = useCallback(() => {
+    if (directSearchTimerRef.current) window.clearTimeout(directSearchTimerRef.current)
+    if (directSearchAbortRef.current) directSearchAbortRef.current.abort()
+    if (directResolveAbortRef.current) directResolveAbortRef.current.abort()
+    directSearchRequestRef.current += 1
+    setDirectSearchOpen(false)
+    setDirectSearchQuery('')
+    setDirectSearchOptions([])
+    setDirectSearchValue('')
+    setLoadingDirectSearch(false)
+    setErrorDirectSearch(null)
+  }, [])
+
+  const applyLocationPath = useCallback((path) => {
+    if (!path?.province || !path?.city || !path?.district) return false
+
+    setProvinces((current) => (
+      current.some((item) => String(item.id) === String(path.province.id))
+        ? current
+        : [...current, path.province]
+    ))
+    setCities([path.city])
+    setDistricts([path.district])
+    setSelectedProvinceId(String(path.province.id))
+    setSelectedCityId(String(path.city.id))
+    setSelectedDistrictId(String(path.district.id))
+
+    if (path.village) {
+      setVillages([path.village])
+      setSelectedVillageId(String(path.village.id))
+      onComplete?.({ ...path, adm4: path.village.code })
+    } else {
+      setVillages([])
+      setSelectedVillageId('')
+      onComplete?.(null)
+      fetchVillages(path.district.id)
+    }
+    return true
+  }, [fetchVillages, onComplete])
+
+  const handleDirectSearchQuery = useCallback((query) => {
+    setDirectSearchQuery(query)
+    setErrorDirectSearch(null)
+    if (directSearchTimerRef.current) window.clearTimeout(directSearchTimerRef.current)
+    if (directSearchAbortRef.current) directSearchAbortRef.current.abort()
+    directSearchRequestRef.current += 1
+    const requestId = directSearchRequestRef.current
+    const normalizedQuery = query.trim()
+    setDirectSearchOptions([])
+
+    if (normalizedQuery.length < 3) {
+      setLoadingDirectSearch(false)
+      return
+    }
+
+    setLoadingDirectSearch(true)
+    directSearchTimerRef.current = window.setTimeout(async () => {
+      const controller = new AbortController()
+      directSearchAbortRef.current = controller
+
+      try {
+        const results = await searchLocations(normalizedQuery, 10, controller.signal)
+        if (controller.signal.aborted || requestId !== directSearchRequestRef.current) return
+        setDirectSearchOptions(results.map((item) => ({
+          id: item.code || item.id,
+          name: item.hierarchy || item.name,
+        })))
+      } catch (err) {
+        if (!controller.signal.aborted && requestId === directSearchRequestRef.current) {
+          setErrorDirectSearch(getApiErrorMessage(err, t) || t('directSearchError'))
+        }
+      } finally {
+        if (requestId === directSearchRequestRef.current) setLoadingDirectSearch(false)
+      }
+    }, 300)
+  }, [t])
+
+  const handleDirectSearchSelect = useCallback(async (code) => {
+    if (!code) return
+    if (directSearchTimerRef.current) window.clearTimeout(directSearchTimerRef.current)
+    if (directSearchAbortRef.current) directSearchAbortRef.current.abort()
+    if (directResolveAbortRef.current) directResolveAbortRef.current.abort()
+
+    const controller = new AbortController()
+    directResolveAbortRef.current = controller
+    setDirectSearchValue(code)
+    setLoadingDirectSearch(true)
+    setErrorDirectSearch(null)
+
+    try {
+      const path = await resolveLocation(code, controller.signal)
+      if (controller.signal.aborted) return
+      if (!applyLocationPath(path)) {
+        setErrorDirectSearch(t('directSearchError'))
+        return
+      }
+      setDirectSearchOpen(false)
+      setDirectSearchQuery('')
+      setDirectSearchOptions([])
+      setDirectSearchValue('')
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        setErrorDirectSearch(getApiErrorMessage(err, t) || t('directSearchError'))
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoadingDirectSearch(false)
+    }
+  }, [applyLocationPath, t])
+
   // Restore initial location if provided
   useEffect(() => {
     if (!initialLocation || provinces.length === 0 || restoredRef.current) return
@@ -173,8 +300,8 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     })
   }, [initialLocation, provinces, onComplete])
 
-  const handleProvinceChange = (e) => {
-    const pId = e.target.value
+  const handleProvinceChange = (pId) => {
+    clearDirectSearch()
     setSelectedProvinceId(pId)
 
     // Clear descendants
@@ -194,8 +321,8 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     }
   }
 
-  const handleCityChange = (e) => {
-    const cId = e.target.value
+  const handleCityChange = (cId) => {
+    clearDirectSearch()
     setSelectedCityId(cId)
 
     // Clear descendants
@@ -212,8 +339,8 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     }
   }
 
-  const handleDistrictChange = (e) => {
-    const dId = e.target.value
+  const handleDistrictChange = (dId) => {
+    clearDirectSearch()
     setSelectedDistrictId(dId)
 
     // Clear descendants
@@ -227,8 +354,8 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     }
   }
 
-  const handleVillageChange = (e) => {
-    const vId = e.target.value
+  const handleVillageChange = (vId) => {
+    clearDirectSearch()
     setSelectedVillageId(vId)
 
     if (!vId) {
@@ -266,7 +393,43 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
             <p className="text-secondary small mb-0">{t('locationInstruction')}</p>
           </div>
         </div>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary ks-location-search-toggle d-inline-flex align-items-center gap-2"
+          aria-controls="direct-location-search"
+          aria-expanded={directSearchOpen}
+          aria-pressed={directSearchOpen}
+          onClick={() => (directSearchOpen ? clearDirectSearch() : setDirectSearchOpen(true))}
+        >
+          <i className="bi bi-search" aria-hidden="true"></i>
+          <span>{t('directSearchToggle')}</span>
+        </button>
       </div>
+
+      {directSearchOpen && (
+        <div id="direct-location-search" className="ks-direct-search mb-3">
+          <label htmlFor="location-search" className="form-label fw-semibold small text-dark mb-1">
+            {t('directSearchLabel')}
+          </label>
+          <ComboBox
+            id="location-search"
+            value={directSearchValue}
+            options={directSearchOptions}
+            placeholder={t('directSearchPlaceholder')}
+            noResultsLabel={directSearchQuery.trim().length < 3 ? t('directSearchHint') : t('directSearchNoResults')}
+            loadingLabel={t('directSearchLoading')}
+            ariaBusy={loadingDirectSearch}
+            onQueryChange={handleDirectSearchQuery}
+            onChange={handleDirectSearchSelect}
+          />
+          <p className="small text-secondary mb-0 mt-1">{t('directSearchHint')}</p>
+          {errorDirectSearch && (
+            <div className="small text-danger mt-1" role="alert">
+              {errorDirectSearch}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="row g-3">
         {/* Province */}
@@ -280,23 +443,16 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
               <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
             )}
           </label>
-          <select
+          <ComboBox
             id="province-select"
-            className="form-select shadow-xs"
             value={selectedProvinceId}
-            onChange={handleProvinceChange}
+            options={provinces}
+            placeholder={loadingProvince ? t('loadingLocations') : t('selectProvince')}
             disabled={loadingProvince}
-            aria-busy={loadingProvince}
-          >
-            <option value="">
-              {loadingProvince ? t('loadingLocations') : t('selectProvince')}
-            </option>
-            {provinces.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            noResultsLabel={t('noLocationResults')}
+            onChange={handleProvinceChange}
+            ariaBusy={loadingProvince}
+          />
           {errorProvince && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
               <span>{errorProvince}</span>
@@ -322,23 +478,16 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
               <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
             )}
           </label>
-          <select
+          <ComboBox
             id="city-select"
-            className="form-select shadow-xs"
             value={selectedCityId}
-            onChange={handleCityChange}
+            options={cities}
+            placeholder={loadingCity ? t('loadingLocations') : t('selectCity')}
             disabled={!selectedProvinceId || loadingCity}
-            aria-busy={loadingCity}
-          >
-            <option value="">
-              {loadingCity ? t('loadingLocations') : t('selectCity')}
-            </option>
-            {cities.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            noResultsLabel={t('noLocationResults')}
+            onChange={handleCityChange}
+            ariaBusy={loadingCity}
+          />
           {errorCity && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
               <span>{errorCity}</span>
@@ -364,23 +513,16 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
               <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
             )}
           </label>
-          <select
+          <ComboBox
             id="district-select"
-            className="form-select shadow-xs"
             value={selectedDistrictId}
-            onChange={handleDistrictChange}
+            options={districts}
+            placeholder={loadingDistrict ? t('loadingLocations') : t('selectDistrict')}
             disabled={!selectedCityId || loadingDistrict}
-            aria-busy={loadingDistrict}
-          >
-            <option value="">
-              {loadingDistrict ? t('loadingLocations') : t('selectDistrict')}
-            </option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            noResultsLabel={t('noLocationResults')}
+            onChange={handleDistrictChange}
+            ariaBusy={loadingDistrict}
+          />
           {errorDistrict && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
               <span>{errorDistrict}</span>
@@ -406,23 +548,16 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
               <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
             )}
           </label>
-          <select
+          <ComboBox
             id="village-select"
-            className="form-select shadow-xs"
             value={selectedVillageId}
-            onChange={handleVillageChange}
+            options={villages}
+            placeholder={loadingVillage ? t('loadingLocations') : t('selectVillage')}
             disabled={!selectedDistrictId || loadingVillage}
-            aria-busy={loadingVillage}
-          >
-            <option value="">
-              {loadingVillage ? t('loadingLocations') : t('selectVillage')}
-            </option>
-            {villages.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
+            noResultsLabel={t('noLocationResults')}
+            onChange={handleVillageChange}
+            ariaBusy={loadingVillage}
+          />
           {errorVillage && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
               <span>{errorVillage}</span>

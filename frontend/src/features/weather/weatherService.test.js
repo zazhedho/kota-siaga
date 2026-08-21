@@ -18,4 +18,20 @@ describe('weatherService', () => {
     })
     expect(result).toEqual(mockData)
   })
+
+  it('returns forecasts in descending local time order', async () => {
+    const mockData = [
+      { id: 'morning', local_datetime: '2026-08-20T06:00:00+07:00' },
+      { id: 'latest', local_datetime: '2026-08-20T18:00:00+07:00' },
+      { id: 'afternoon', local_datetime: '2026-08-20T14:00:00+07:00' },
+    ]
+    vi.spyOn(client, 'request').mockResolvedValue({
+      status: true,
+      data: mockData,
+    })
+
+    const result = await getForecast('32.73.01.1001')
+
+    expect(result.map((item) => item.id)).toEqual(['latest', 'afternoon', 'morning'])
+  })
 })

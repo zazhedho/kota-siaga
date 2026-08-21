@@ -1,5 +1,5 @@
 import { request } from '../../shared/api/client'
-import { readPage } from '../../shared/api/response'
+import { readData, readPage } from '../../shared/api/response'
 
 async function list(path, params, signal) {
   const body = await request(path, {
@@ -23,4 +23,20 @@ export function listDistricts(cityId, signal) {
 
 export function listVillages(districtId, signal) {
   return list('/locations/village', { kecamatan_id: districtId }, signal)
+}
+
+export async function searchLocations(query, limit = 10, signal) {
+  const body = await request('/locations/search', {
+    params: { q: query, limit },
+    signal,
+  })
+  return readData(body) || []
+}
+
+export async function resolveLocation(code, signal) {
+  const body = await request('/locations/resolve', {
+    params: { code },
+    signal,
+  })
+  return readData(body)
 }

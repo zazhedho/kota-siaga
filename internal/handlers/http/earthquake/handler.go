@@ -3,12 +3,9 @@ package earthquakehandler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"kota-siaga/internal/dto"
-	handlercommon "kota-siaga/internal/handlers/http/common"
-	"kota-siaga/internal/integrations/apiindonesia"
 	earthquakeservice "kota-siaga/internal/services/earthquake"
 	"kota-siaga/pkg/logger"
 	"kota-siaga/pkg/messages"
@@ -37,15 +34,11 @@ func NewEarthquakeHandler(service Service) *Handler {
 	return NewHandler(service)
 }
 
-func Register(router gin.IRouter, client *apiindonesia.Client, redisClient *redis.Client) {
+func Register(router gin.IRouter, client earthquakeservice.UpstreamClient, redisClient *redis.Client) {
 	if router == nil {
 		return
 	}
-	var upstream earthquakeservice.UpstreamClient
-	if client != nil {
-		upstream = client
-	}
-	handler := NewHandler(earthquakeservice.NewService(upstream, redisClient))
+	handler := NewHandler(earthquakeservice.NewService(client, redisClient))
 	router.GET("/api/earthquakes/latest", handler.GetLatest)
 }
 
@@ -75,21 +68,6 @@ func handleServiceError(ctx *gin.Context, err error) {
 		return
 	}
 
-	var upstreamErr *apiindonesia.UpstreamError
-	if errors.As(err, &upstreamErr) && upstreamErr != nil {
-		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf(
-			"Earthquake upstream request failed: status=%d code=%s",
-			upstreamErr.StatusCode,
-			handlercommon.SafeUpstreamCode(upstreamErr.Code),
-		))
-		if upstreamErr.StatusCode == http.StatusNotFound {
-			writeNotFound(ctx)
-			return
-		}
-		writeUpstreamError(ctx)
-		return
-	}
-
 	logger.WriteLogWithContext(ctx, logger.LogLevelError, "Earthquake upstream request failed")
 	writeUpstreamError(ctx)
 }
@@ -100,15 +78,6 @@ func writeDependencyUnavailable(ctx *gin.Context) {
 		"Earthquake service unavailable",
 		utils.GenerateLogId(ctx),
 		"Earthquake service unavailable",
-	))
-}
-
-func writeNotFound(ctx *gin.Context) {
-	ctx.JSON(http.StatusNotFound, response.ErrorResponse(
-		http.StatusNotFound,
-		"Earthquake not found",
-		utils.GenerateLogId(ctx),
-		"Earthquake not found",
 	))
 }
 

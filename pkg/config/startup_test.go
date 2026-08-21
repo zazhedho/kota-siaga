@@ -53,3 +53,14 @@ func TestValidateStartupConfigRejectsAPIBaseURLQueryOrFragment(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateStartupConfigRejectsBMKGBaseURL(t *testing.T) {
+	t.Setenv("API_INDONESIA_KEY", "aip_live_test")
+	t.Setenv("API_INDONESIA_BASE_URL", "https://use.apiindonesia.id")
+	t.Setenv("BMKG_BASE_URL", "ftp://data.bmkg.go.id")
+
+	err := ValidateStartupConfig("8080")
+	if err == nil || !strings.Contains(err.Error(), "BMKG_BASE_URL must be a valid URL") {
+		t.Fatalf("expected invalid BMKG base URL to fail, got %v", err)
+	}
+}

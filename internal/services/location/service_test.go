@@ -16,6 +16,8 @@ type upstreamFake struct {
 	cities    dto.Page[dto.City]
 	districts dto.Page[dto.District]
 	villages  dto.Page[dto.Village]
+	search    []dto.LocationSearchItem
+	resolved  dto.LocationPath
 	err       error
 	calls     []string
 }
@@ -35,6 +37,14 @@ func (f *upstreamFake) ListDistricts(_ context.Context, regencyID string, page, 
 func (f *upstreamFake) ListVillages(_ context.Context, districtID string, page, perPage int) (dto.Page[dto.Village], error) {
 	f.calls = append(f.calls, "village:"+districtID)
 	return f.villages, f.err
+}
+func (f *upstreamFake) SearchLocations(_ context.Context, query string, limit int) ([]dto.LocationSearchItem, error) {
+	f.calls = append(f.calls, "search:"+query)
+	return f.search, f.err
+}
+func (f *upstreamFake) ResolveLocation(_ context.Context, code string) (dto.LocationPath, error) {
+	f.calls = append(f.calls, "resolve:"+code)
+	return f.resolved, f.err
 }
 
 func TestServiceListsEachLocationLevel(t *testing.T) {
@@ -88,6 +98,97 @@ func TestServiceRejectsInvalidPaginationAndParentIDsBeforeUpstream(t *testing.T)
 	}
 	if len(fake.calls) != 0 {
 		t.Fatalf("validation called upstream: %#v", fake.calls)
+	}
+}
+
+func TestSearchFiltersToDistrictAndVillageMatches(t *testing.T) {
+	fake := &upstreamFake{search: []dto.LocationSearchItem{
+		{ID: "32", Code: "32", Name: "Jawa Barat", Level: "province"},
+		{ID: "327301", Code: "32.73.01", Name: "Sukasari", Level: "district", Hierarchy: "Sukasari — Kota Bandung, Jawa Barat"},
+		{ID: "3273011001", Code: "32.73.01.1001", Name: "Pasteur", Level: "village", Hierarchy: "Pasteur — Sukasari, Kota Bandung, Jawa Barat"},
+	}}
+	svc := NewService(fake, nil)
+
+	got, err := svc.SearchLocations(context.Background(), "pasteur", 10)
+	if err != nil {
+		t.Fatalf("SearchLocations() error = %v", err)
+	}
+	if len(got) != 2 || got[0].Name != "Sukasari" || got[0].Level != "district" || got[0].Hierarchy == "" || got[1].Name != "Pasteur" || got[1].Level != "village" || got[1].Hierarchy == "" {
+		t.Fatalf("unexpected location matches: %+v", got)
+	}
+}
+
+func TestSearchRejectsShortQueryAndInvalidLimit(t *testing.T) {
+	fake := &upstreamFake{}
+	svc := NewService(fake, nil)
+	ctx := context.Background()
+
+	for _, test := range []struct {
+		name  string
+		query string
+		limit int
+		want  error
+	}{
+		{name: "short query", query: "ab", limit: 10, want: ErrInvalidSearchQuery},
+		{name: "blank query", query: "   ", limit: 10, want: ErrInvalidSearchQuery},
+		{name: "zero limit", query: "abc", limit: 0, want: ErrInvalidSearchLimit},
+		{name: "large limit", query: "abc", limit: 11, want: ErrInvalidSearchLimit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := svc.SearchLocations(ctx, test.query, test.limit)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("expected %v, got %v", test.want, err)
+			}
+		})
+	}
+	if len(fake.calls) != 0 {
+		t.Fatalf("validation called upstream: %#v", fake.calls)
+	}
+}
+
+func TestResolveValidatesLocationCodeAndReturnsPath(t *testing.T) {
+	want := dto.LocationPath{
+		Province: dto.Province{ID: "32", Name: "Jawa Barat"},
+		City:     dto.City{ID: "3273", Name: "Kota Bandung"},
+		District: dto.District{ID: "327301", Name: "Sukasari"},
+		Level:    "village",
+		Village:  &dto.Village{ID: "3273011001", Name: "Pasteur"},
+	}
+	fake := &upstreamFake{resolved: want}
+	svc := NewService(fake, nil)
+
+	got, err := svc.ResolveLocation(context.Background(), "32.73.01.1001")
+	if err != nil {
+		t.Fatalf("ResolveLocation() error = %v", err)
+	}
+	if got != want {
+		t.Fatalf("unexpected resolved path: %+v", got)
+	}
+
+	if _, err := svc.ResolveLocation(context.Background(), "32x73"); !errors.Is(err, ErrInvalidLocationCode) {
+		t.Fatalf("expected invalid location code, got %v", err)
+	}
+	if len(fake.calls) != 1 || fake.calls[0] != "resolve:32.73.01.1001" {
+		t.Fatalf("unexpected upstream calls: %#v", fake.calls)
+	}
+}
+
+func TestResolveAcceptsDistrictCode(t *testing.T) {
+	want := dto.LocationPath{
+		Level:    "district",
+		Province: dto.Province{ID: "32", Name: "Jawa Barat"},
+		City:     dto.City{ID: "3273", Name: "Kota Bandung"},
+		District: dto.District{ID: "327301", Name: "Sukasari"},
+	}
+	fake := &upstreamFake{resolved: want}
+	svc := NewService(fake, nil)
+
+	got, err := svc.ResolveLocation(context.Background(), "32.73.01")
+	if err != nil {
+		t.Fatalf("ResolveLocation() error = %v", err)
+	}
+	if got != want || got.Village != nil {
+		t.Fatalf("unexpected district path: %+v", got)
 	}
 }
 

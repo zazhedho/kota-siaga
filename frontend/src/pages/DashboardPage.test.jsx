@@ -39,6 +39,13 @@ function renderDashboard() {
   )
 }
 
+async function chooseOption(user, label, optionName) {
+  const input = screen.getByRole('combobox', { name: label })
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.click(input)
+  await user.click(await screen.findByRole('option', { name: optionName }))
+}
+
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -98,17 +105,11 @@ describe('DashboardPage', () => {
       screen.getByText(/Silakan pilih lokasi lengkap|Please select a complete location/i),
     ).toBeInTheDocument()
 
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'JAWA BARAT' })).toBeInTheDocument()
-    })
-
-    await user.selectOptions(screen.getByLabelText(/Provinsi|Province/i), '32')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'KOTA BANDUNG' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kabupaten\/Kota|City or regency/i), '3273')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'SUKAJADI' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kecamatan|District/i), '3273010')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'PASTEUR' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kelurahan\/Desa|Village/i), '3273010100')
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
+    await chooseOption(user, /Kelurahan\/Desa|Village/i, 'PASTEUR')
 
     await waitFor(() => {
       expect(weatherService.getForecast).toHaveBeenCalledWith('32.73.01.1001', expect.any(Object))
@@ -128,17 +129,11 @@ describe('DashboardPage', () => {
     const user = userEvent.setup()
     renderDashboard()
 
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'JAWA BARAT' })).toBeInTheDocument()
-    })
-
-    await user.selectOptions(screen.getByLabelText(/Provinsi|Province/i), '32')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'KOTA BANDUNG' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kabupaten\/Kota|City or regency/i), '3273')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'SUKAJADI' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kecamatan|District/i), '3273010')
-    await waitFor(() => expect(screen.getByRole('option', { name: 'PASTEUR' })).toBeInTheDocument())
-    await user.selectOptions(screen.getByLabelText(/Kelurahan\/Desa|Village/i), '3273010100')
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
+    await chooseOption(user, /Kelurahan\/Desa|Village/i, 'PASTEUR')
 
     await waitFor(() => {
       expect(screen.getByText('Peringatan gagal dimuat')).toBeInTheDocument()

@@ -45,3 +45,29 @@ type Village struct {
 	Longitude        float64 `json:"longitude"`
 	IsActive         bool    `json:"is_active"`
 }
+
+type LocationRecord struct {
+	Code       string `json:"code"`
+	FullCode   string `json:"full_code"`
+	Name       string `json:"name"`
+	Level      string `json:"level"`
+	ParentCode string `json:"parent_code"`
+	PostalCode string `json:"postal_code"`
+}
+
+type LocationSearchItem struct {
+	ID         string `json:"id"`
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	Level      string `json:"level"`
+	PostalCode string `json:"postal_code"`
+	Hierarchy  string `json:"hierarchy"`
+}
+
+type LocationPath struct {
+	Province Province `json:"province"`
+	City     City     `json:"city"`
+	District District `json:"district"`
+	Level    string   `json:"level"`
+	Village  *Village `json:"village,omitempty"`
+}

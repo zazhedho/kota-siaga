@@ -18,6 +18,8 @@ import (
 
 type serviceFake struct {
 	provincePage dto.Page[dto.Province]
+	search       []dto.LocationSearchItem
+	resolved     dto.LocationPath
 	err          error
 	calls        int
 }
@@ -37,6 +39,14 @@ func (f *serviceFake) ListDistricts(_ context.Context, _ string, _, _ int) (dto.
 func (f *serviceFake) ListVillages(_ context.Context, _ string, _, _ int) (dto.Page[dto.Village], error) {
 	f.calls++
 	return dto.Page[dto.Village]{}, f.err
+}
+func (f *serviceFake) SearchLocations(_ context.Context, _ string, _ int) ([]dto.LocationSearchItem, error) {
+	f.calls++
+	return f.search, f.err
+}
+func (f *serviceFake) ResolveLocation(_ context.Context, _ string) (dto.LocationPath, error) {
+	f.calls++
+	return f.resolved, f.err
 }
 
 func TestHandlerRejectsMissingOrInvalidParentID(t *testing.T) {
@@ -147,6 +157,85 @@ func TestHandlerMapsMissingLocationClientToSafeServiceUnavailable(t *testing.T) 
 	}
 }
 
+func TestHandlerSearchValidatesQueryAndLimit(t *testing.T) {
+	service := &serviceFake{}
+	handler := NewHandler(service)
+	for _, query := range []string{
+		"/api/locations/search?q=ab",
+		"/api/locations/search?q=abc&limit=0",
+		"/api/locations/search?q=abc&limit=11",
+	} {
+		router := gin.New()
+		router.GET("/api/locations/search", handler.Search)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, query, nil))
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("%s: expected 400, got %d: %s", query, recorder.Code, recorder.Body.String())
+		}
+	}
+	if service.calls != 0 {
+		t.Fatalf("invalid search reached service %d times", service.calls)
+	}
+}
+
+func TestHandlerSearchWritesMatches(t *testing.T) {
+	service := &serviceFake{search: []dto.LocationSearchItem{{ID: "3273011001", Code: "32.73.01.1001", Name: "Pasteur", Level: "village", Hierarchy: "Pasteur — Sukasari, Kota Bandung, Jawa Barat"}}}
+	handler := NewHandler(service)
+	router := gin.New()
+	router.GET("/api/locations/search", handler.Search)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/locations/search?q=pasteur&limit=10", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	for _, fragment := range []string{`"status":true`, `"name":"Pasteur"`, `"level":"village"`, `"hierarchy":"Pasteur — Sukasari, Kota Bandung, Jawa Barat"`} {
+		if !strings.Contains(recorder.Body.String(), fragment) {
+			t.Fatalf("response missing %s: %s", fragment, recorder.Body.String())
+		}
+	}
+}
+
+func TestHandlerResolveWritesLocationPath(t *testing.T) {
+	service := &serviceFake{resolved: dto.LocationPath{
+		Province: dto.Province{ID: "32", Name: "Jawa Barat"},
+		City:     dto.City{ID: "3273", Name: "Kota Bandung"},
+		District: dto.District{ID: "327301", Name: "Sukasari"},
+		Level:    "village",
+		Village:  &dto.Village{ID: "3273011001", Name: "Pasteur"},
+	}}
+	handler := NewHandler(service)
+	router := gin.New()
+	router.GET("/api/locations/resolve", handler.Resolve)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/locations/resolve?code=32.73.01.1001", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	for _, fragment := range []string{`"province"`, `"name":"Jawa Barat"`, `"name":"Pasteur"`} {
+		if !strings.Contains(recorder.Body.String(), fragment) {
+			t.Fatalf("response missing %s: %s", fragment, recorder.Body.String())
+		}
+	}
+}
+
+func TestHandlerResolveRejectsInvalidCode(t *testing.T) {
+	service := &serviceFake{}
+	handler := NewHandler(service)
+	router := gin.New()
+	router.GET("/api/locations/resolve", handler.Resolve)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/locations/resolve?code=32x73", nil))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if service.calls != 0 {
+		t.Fatalf("invalid code reached service %d times", service.calls)
+	}
+}
+
 func TestHandlerKeepsTypedUpstreamDetailsOutOfResponse(t *testing.T) {
 	const (
 		apiKey       = "SECRET_API_KEY"
@@ -196,6 +285,8 @@ func TestRegisterAddsIndependentLocationRoutes(t *testing.T) {
 		"/api/locations/city?province_id=32&page=1&per_page=20",
 		"/api/locations/district?kabupaten_id=3273&page=1&per_page=20",
 		"/api/locations/village?kecamatan_id=327301&page=1&per_page=20",
+		"/api/locations/search?q=abc",
+		"/api/locations/resolve?code=32.73.01.1001",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))

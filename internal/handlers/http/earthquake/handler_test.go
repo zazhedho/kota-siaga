@@ -3,14 +3,12 @@ package earthquakehandler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"kota-siaga/internal/dto"
-	"kota-siaga/internal/integrations/apiindonesia"
 
 	"github.com/gin-gonic/gin"
 )
@@ -76,59 +74,6 @@ func TestHandlerReturnsServiceUnavailableWhenDependencyMissing(t *testing.T) {
 	body := recorder.Body.String()
 	if strings.Contains(body, "not configured") || strings.Contains(body, "earthquake upstream client") {
 		t.Fatalf("response exposed internal dependency error: %s", body)
-	}
-}
-
-func TestHandlerMapsTypedUpstreamNotFoundToSafeNotFound(t *testing.T) {
-	const (
-		apiKey       = "SECRET_API_KEY"
-		upstreamBody = "private upstream body"
-	)
-	handler := NewHandler(&serviceFake{err: fmt.Errorf("upstream response %s with key %s: %w", upstreamBody, apiKey, &apiindonesia.UpstreamError{
-		StatusCode: http.StatusNotFound,
-		Code:       "EARTHQUAKE_NOT_FOUND",
-	})})
-	router := gin.New()
-	router.GET("/api/earthquakes/latest", handler.GetLatest)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/earthquakes/latest", nil))
-
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d: %s", recorder.Code, recorder.Body.String())
-	}
-	body := recorder.Body.String()
-	if !strings.Contains(body, "Earthquake not found") {
-		t.Fatalf("expected safe not-found response: %s", body)
-	}
-	for _, secret := range []string{apiKey, upstreamBody, "upstream response", "EARTHQUAKE_NOT_FOUND"} {
-		if strings.Contains(body, secret) {
-			t.Fatalf("response exposed upstream detail %q: %s", secret, body)
-		}
-	}
-}
-
-func TestHandlerMapsOtherUpstreamErrorsToSafeBadGateway(t *testing.T) {
-	const (
-		apiKey       = "SECRET_API_KEY"
-		upstreamBody = "private upstream body"
-	)
-	handler := NewHandler(&serviceFake{err: fmt.Errorf("upstream response %s with key %s: %w", upstreamBody, apiKey, &apiindonesia.UpstreamError{
-		StatusCode: http.StatusTooManyRequests,
-		Code:       "QUOTA_EXCEEDED",
-	})})
-	router := gin.New()
-	router.GET("/api/earthquakes/latest", handler.GetLatest)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/earthquakes/latest", nil))
-
-	if recorder.Code != http.StatusBadGateway {
-		t.Fatalf("expected 502, got %d: %s", recorder.Code, recorder.Body.String())
-	}
-	body := recorder.Body.String()
-	for _, secret := range []string{apiKey, upstreamBody, "upstream response", "QUOTA_EXCEEDED"} {
-		if strings.Contains(body, secret) {
-			t.Fatalf("response exposed upstream detail %q: %s", secret, body)
-		}
 	}
 }
 
