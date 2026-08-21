@@ -62,6 +62,16 @@ describe('HospitalPanel', () => {
     ).toBeInTheDocument()
   })
 
+  it('keeps emergency contacts in one aligned action group', () => {
+    renderHospitals({ hospitals: [], total: 0 })
+
+    const emergencyActions = screen.getByRole('link', { name: /119/ }).parentElement
+
+    expect(emergencyActions).toHaveClass('ks-emergency-actions')
+    expect(screen.getByRole('link', { name: /119/ })).toHaveClass('ks-emergency-action')
+    expect(screen.getByRole('link', { name: /112/ })).toHaveClass('ks-emergency-action')
+  })
+
   it('renders error state with retry button', () => {
     const onRetry = vi.fn()
     renderHospitals({ error: 'Gagal memuat rumah sakit', onRetry })

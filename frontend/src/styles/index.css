@@ -13,11 +13,13 @@ html, body {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--ks-font-sans);
   background-color: var(--ks-background);
   color: var(--ks-ink);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  letter-spacing: -0.015em;
 }
 
 #root {
@@ -32,80 +34,687 @@ body {
   outline-offset: 2px;
 }
 
-/* Touch targets */
+/* Keep Bootstrap Icons square inside flex controls and padded icon tiles. */
+.bi {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+}
+
+/* Skip Link — visible only on keyboard focus */
+.ks-skip-link {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -120%);
+  z-index: 1080;
+  padding: 0.625rem 1.25rem;
+  background-color: var(--ks-primary);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 var(--ks-radius-sm) var(--ks-radius-sm);
+  box-shadow: var(--ks-shadow-card);
+  transition: transform 0.18s ease-in-out;
+}
+
+.ks-skip-link:focus {
+  transform: translate(-50%, 0);
+  color: #ffffff;
+}
+
+/* Segmented Controls — one shared shape for every header control */
+.ks-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius-pill);
+  background-color: var(--ks-surface-subtle);
+  flex-shrink: 0;
+}
+
+.ks-segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border: none;
+  border-radius: var(--ks-radius-pill);
+  background-color: transparent;
+  color: var(--ks-ink-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ks-segment:hover {
+  background-color: var(--ks-surface);
+  color: var(--ks-ink);
+}
+
+.ks-segment-active,
+.ks-segment-active:hover {
+  background-color: var(--ks-primary);
+  color: #ffffff;
+  box-shadow: var(--ks-shadow-xs);
+}
+
+.ks-segmented-danger {
+  border-color: var(--ks-danger-border);
+  background-color: var(--ks-danger-bg);
+}
+
+.ks-segmented-danger .ks-segment {
+  color: var(--ks-danger-text);
+}
+
+.ks-segmented-danger .ks-segment:hover {
+  background-color: var(--ks-danger);
+  color: #ffffff;
+}
+
+/* Form Controls & Buttons */
 .form-select,
-.form-control,
-.btn {
+.form-control {
   min-height: 44px;
+  border-radius: var(--ks-radius-sm);
+  border: 1px solid var(--ks-border);
+  background-color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ks-ink);
+  transition: all 0.2s ease-in-out;
 }
 
-.btn-group .btn {
-  min-height: 40px;
-  min-width: 44px;
+.form-select:hover:not(:disabled),
+.form-control:hover:not(:disabled) {
+  border-color: #cbd5e1;
 }
 
-/* Layout Utilities */
+.form-select:focus,
+.form-control:focus {
+  border-color: var(--ks-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  background-color: #ffffff;
+}
+
+.form-select:disabled {
+  background-color: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.btn {
+  font-family: var(--ks-font-sans);
+  font-weight: 600;
+  border-radius: var(--ks-radius-sm);
+  transition: all 0.18s ease-in-out;
+}
+
+.btn-primary {
+  background: var(--ks-primary-gradient);
+  border: none;
+  box-shadow: var(--ks-shadow-glow-primary);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
+}
+
+/* App Header */
+.ks-header {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ks-border);
+  box-shadow: var(--ks-shadow-xs);
+  z-index: 1020;
+}
+
+.ks-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 60px;
+  padding: 0.5rem 0;
+}
+
+.ks-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ks-brand-text {
+  min-width: 0;
+}
+
+.ks-brand-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  color: var(--ks-ink);
+  white-space: nowrap;
+}
+
+.ks-brand-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--ks-ink-subtle);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.ks-brand-tagline {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ks-live-label {
+  flex-shrink: 0;
+}
+
+.ks-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 991.98px) {
+  .ks-brand-tagline {
+    display: none;
+  }
+}
+
+.ks-brand-badge {
+  background: var(--ks-brand-gradient);
+  color: #ffffff;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.15rem;
+  box-shadow: var(--ks-shadow-glow-primary);
+}
+
+/* Below the small breakpoint the brand line is trimmed instead of truncated
+   mid-word, so the emergency and language controls always stay on one row. */
+@media (max-width: 575.98px) {
+  .ks-brand-subtitle {
+    display: none;
+  }
+
+  .ks-header-bar {
+    min-height: 56px;
+  }
+}
+
+@media (max-width: 389.98px) {
+  .ks-brand-badge {
+    display: none;
+  }
+
+  .ks-header-actions {
+    gap: 0.375rem;
+  }
+
+  .ks-segment {
+    padding: 0.3rem 0.55rem;
+  }
+}
+
+/* Live Pulse Indicator */
+.ks-live-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--ks-success);
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: ks-pulse 2s infinite;
+}
+
+@keyframes ks-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Base Card */
 .ks-card {
   background-color: var(--ks-surface);
   border: 1px solid var(--ks-border);
   border-radius: var(--ks-radius);
-  box-shadow: var(--ks-shadow);
-  padding: 1.25rem;
+  box-shadow: var(--ks-shadow-card);
+  padding: 1.25rem 1.5rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  height: auto;
+  align-self: flex-start;
+  width: 100%;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ks-card:hover {
+  border-color: #cbd5e1;
+}
+
+.ks-card-header {
+  border-bottom: 1px solid var(--ks-border-subtle);
+  padding-bottom: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.ks-icon-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+/* Location Selector Card */
+.ks-location-card {
+  border-top: 4px solid var(--ks-primary);
+}
+
+.ks-step-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--ks-primary-subtle);
+  color: var(--ks-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Selected Location Banner */
+.ks-selected-location-banner {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 60%, #f0fdf4 100%);
+  border: 1px solid var(--ks-primary-border);
+  border-radius: var(--ks-radius);
+  padding: 1.125rem 1.5rem;
+  box-shadow: var(--ks-shadow-card);
+}
+
+/* Empty State Styling - compact, balanced, never bloated */
+.ks-empty-container {
+  padding: 1.25rem 1rem;
+  text-align: center;
+  border-radius: var(--ks-radius-sm);
+  background-color: var(--ks-surface-subtle);
+  border: 1px dashed var(--ks-border);
+}
+
+.ks-empty-container-safe {
+  background-color: var(--ks-success-bg);
+  border: 1px solid var(--ks-success-border);
+}
+
+.ks-empty-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.ks-empty-icon-success {
+  background-color: #d1fae5;
+  color: var(--ks-success-text);
+}
+
+.ks-empty-icon-info {
+  background-color: var(--ks-primary-subtle);
+  color: var(--ks-primary);
+}
+
+.ks-empty-icon-neutral {
+  background-color: #e2e8f0;
+  color: var(--ks-ink-subtle);
+}
+
+/* Scrollable List Container
+   ponytail: height is bound to the viewport on phones so a long list never
+   turns the page into an endless scroll, and to a fixed height on wide screens
+   where the two-column layout wants balanced panels. Upgrade path: virtualise
+   the list if item counts grow beyond a few hundred. */
+.ks-scrollable-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+@media (min-width: 992px) {
+  .ks-scrollable-list {
+    max-height: 520px;
+  }
+}
+
+.ks-scrollable-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ks-scrollable-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.ks-scrollable-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.ks-scrollable-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Weather Forecast Item */
+.ks-forecast-item {
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius-sm);
+  padding: 0.875rem 1.125rem;
+  background-color: var(--ks-surface);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-.ks-header {
-  background-color: var(--ks-surface);
-  border-bottom: 1px solid var(--ks-border);
+.ks-forecast-item:hover {
+  border-color: var(--ks-primary-border);
+  box-shadow: var(--ks-shadow-xs);
+  transform: translateY(-1px);
 }
 
-.ks-brand-title {
-  color: var(--ks-primary);
+.ks-temp-badge {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ks-ink);
+  letter-spacing: -0.03em;
+}
+
+/* Warning Card Item */
+.ks-warning-card {
+  border: 1px solid var(--ks-border);
+  border-left-width: 4px;
+  border-radius: var(--ks-radius-sm);
+  padding: 1rem 1.125rem;
+  background-color: var(--ks-surface);
+  transition: box-shadow 0.15s ease;
+}
+
+.ks-warning-card-moderate {
+  border-left-color: var(--ks-warning);
+  background-color: #fffdfa;
+}
+
+.ks-warning-card-severe,
+.ks-warning-card-extreme {
+  border-left-color: var(--ks-danger);
+  background-color: #fffbfb;
+}
+
+.ks-warning-card-minor {
+  border-left-color: var(--ks-info);
+}
+
+/* Earthquake Card Item */
+.ks-earthquake-card {
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius-sm);
+  padding: 1rem 1.125rem;
+  background-color: var(--ks-surface);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ks-earthquake-card:hover {
+  box-shadow: var(--ks-shadow-xs);
+  border-color: #cbd5e1;
+}
+
+.ks-earthquake-time {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--ks-border-subtle);
+  border-radius: var(--ks-radius-sm);
+  background: var(--ks-surface-subtle);
+}
+
+.ks-earthquake-time-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.625rem;
+  background: var(--ks-danger-bg);
+  color: var(--ks-danger-text);
+}
+
+.ks-earthquake-time-label {
+  display: block;
+  margin-bottom: 0.1rem;
+  color: var(--ks-ink-subtle);
+  font-size: 0.68rem;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.ks-earthquake-time-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  color: var(--ks-ink);
+  line-height: 1.25;
+}
+
+.ks-earthquake-time-date {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.ks-earthquake-time-clock {
+  font-size: 1.05rem;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
+.ks-earthquake-timezone {
+  color: var(--ks-ink-subtle);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.ks-magnitude-badge {
+  font-size: 0.95rem;
+  font-weight: 800;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--ks-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Hospital Directory Item */
+.ks-hospital-card {
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius-sm);
+  padding: 1rem 1.125rem;
+  background-color: var(--ks-surface);
+  transition: all 0.15s ease;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ks-hospital-card:hover {
+  border-color: var(--ks-primary-border);
+  box-shadow: var(--ks-shadow-xs);
+  transform: translateY(-1px);
+}
+
+.ks-hospital-phone-btn {
+  background-color: #f0fdf4;
+  color: var(--ks-success-text);
+  border: 1px solid var(--ks-success-border);
+  border-radius: var(--ks-radius-sm);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.15s ease;
+}
+
+.ks-hospital-phone-btn:hover {
+  background-color: #dcfce7;
+  color: var(--ks-success-text);
+  transform: translateY(-1px);
+}
+
+/* Emergency contacts: equal columns when there is room, one readable column on phones. */
+.ks-emergency-help {
+  width: 100%;
+  max-width: 480px;
+}
+
+.ks-emergency-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.ks-emergency-action {
+  width: 100%;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 479.98px) {
+  .ks-emergency-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Welcome Onboarding Hero */
+.ks-welcome-hero {
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 50%, #f8fafc 100%);
+  border: 1px solid var(--ks-primary-border);
+  border-radius: var(--ks-radius-lg);
+  padding: 2.75rem 2rem;
+  box-shadow: var(--ks-shadow-card);
+}
+
+.ks-feature-preview-card {
+  background-color: var(--ks-surface);
+  border: 1px solid var(--ks-border);
+  border-radius: var(--ks-radius-sm);
+  padding: 1.25rem;
+  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ks-feature-preview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--ks-shadow-hover);
+  border-color: var(--ks-primary-border);
+}
+
+/* Custom Semantic Badges */
 .ks-badge-warning {
   background-color: var(--ks-warning-bg);
-  color: var(--ks-warning);
+  color: var(--ks-warning-text);
   border: 1px solid var(--ks-warning-border);
 }
 
 .ks-badge-danger {
   background-color: var(--ks-danger-bg);
-  color: var(--ks-danger);
+  color: var(--ks-danger-text);
   border: 1px solid var(--ks-danger-border);
 }
 
 .ks-badge-success {
   background-color: var(--ks-success-bg);
-  color: var(--ks-success);
+  color: var(--ks-success-text);
   border: 1px solid var(--ks-success-border);
 }
 
 .ks-badge-neutral {
-  background-color: #f2f4f7;
-  color: var(--ks-muted);
+  background-color: #f1f5f9;
+  color: var(--ks-ink-subtle);
   border: 1px solid var(--ks-border);
 }
 
-/* Hospital Item Card */
-.ks-hospital-card {
-  border: 1px solid var(--ks-border);
-  border-radius: var(--ks-radius);
-  padding: 1rem;
-  background-color: var(--ks-surface);
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
+/* Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 
-/* Forecast Item */
-.ks-forecast-item {
-  border: 1px solid var(--ks-border);
-  border-radius: var(--ks-radius);
-  padding: 0.875rem;
-  background-color: #fafbfc;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  .btn-primary:hover,
+  .ks-forecast-item:hover,
+  .ks-hospital-card:hover,
+  .ks-hospital-phone-btn:hover,
+  .ks-feature-preview-card:hover {
+    transform: none;
+  }
 }

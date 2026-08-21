@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocale } from '../shared/i18n'
-import { getApiErrorMessage } from '../shared/api/client'
 import { LocationSelector } from '../features/location/LocationSelector'
 import { WeatherPanel } from '../features/weather/WeatherPanel'
 import { WarningPanel } from '../features/warning/WarningPanel'
@@ -50,13 +49,13 @@ export function DashboardPage() {
       const items = await getForecast(villageCode, signal)
       setWeatherData(items)
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorWeather(err)
+      if (err.name !== 'AbortError') {
+        setErrorWeather(err.message || t('genericError'))
       }
     } finally {
       setLoadingWeather(false)
     }
-  }, [])
+  }, [t])
 
   const fetchWarnings = useCallback(async (provinceName, signal) => {
     setLoadingWarnings(true)
@@ -65,13 +64,13 @@ export function DashboardPage() {
       const items = await listWarnings(provinceName, signal)
       setWarningData(items)
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorWarnings(err)
+      if (err.name !== 'AbortError') {
+        setErrorWarnings(err.message || t('genericError'))
       }
     } finally {
       setLoadingWarnings(false)
     }
-  }, [])
+  }, [t])
 
   const fetchEarthquakes = useCallback(async (signal) => {
     setLoadingEarthquakes(true)
@@ -80,13 +79,13 @@ export function DashboardPage() {
       const items = await listLatest(signal)
       setEarthquakeData(items)
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorEarthquakes(err)
+      if (err.name !== 'AbortError') {
+        setErrorEarthquakes(err.message || t('genericError'))
       }
     } finally {
       setLoadingEarthquakes(false)
     }
-  }, [])
+  }, [t])
 
   const fetchHospitals = useCallback(async (cityId, page = 1, append = false, signal) => {
     if (append) {
@@ -107,14 +106,14 @@ export function DashboardPage() {
       setHospitalPage(result.page)
       setHasNextHospitalPage(result.nextPage)
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorHospitals(err)
+      if (err.name !== 'AbortError') {
+        setErrorHospitals(err.message || t('genericError'))
       }
     } finally {
       setLoadingHospitals(false)
       setLoadingMoreHospitals(false)
     }
-  }, [])
+  }, [t])
 
   const loadAllFeatures = useCallback((loc) => {
     if (abortControllerRef.current) {
@@ -170,72 +169,105 @@ export function DashboardPage() {
         onComplete={handleLocationComplete}
       />
 
-      {/* When no location is selected yet */}
+      {/* When no location is selected yet: Modern Welcome Onboarding Hero */}
       {!location && (
-        <div className="ks-card text-center py-5">
-          <i className="bi bi-geo-alt-fill fs-1 text-primary mb-3 d-block" aria-hidden="true"></i>
-          <h2 className="h5 fw-bold text-dark mb-2">{t('locationSectionTitle')}</h2>
-          <p className="text-secondary mx-auto mb-0" style={{ maxWidth: '580px' }}>
-            {t('emptyDashboardPrompt')}
-          </p>
+        <div className="ks-welcome-hero">
+          <div className="text-center mb-4">
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill small fw-bold mb-2">
+              <i className="bi bi-shield-fill-check me-2"></i>
+              {t('welcomeBadge')}
+            </span>
+            <h2 className="h4 fw-bold text-dark mb-2">{t('welcomeTitle')}</h2>
+            <p className="text-secondary mx-auto mb-0" style={{ maxWidth: '640px' }}>
+              {t('emptyDashboardPrompt')}
+            </p>
+          </div>
+
+          <div className="row g-3 pt-2">
+            <div className="col-12 col-sm-6 col-lg-3">
+              <div className="ks-feature-preview-card">
+                <div className="p-2 rounded-circle bg-info-subtle text-info d-inline-flex mb-2">
+                  <i className="bi bi-cloud-sun fs-5"></i>
+                </div>
+                <h3 className="h6 fw-bold text-dark mb-1">{t('weatherTitle')}</h3>
+                <p className="small text-secondary mb-0">{t('featureWeatherDesc')}</p>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-lg-3">
+              <div className="ks-feature-preview-card">
+                <div className="p-2 rounded-circle bg-warning-subtle text-warning d-inline-flex mb-2">
+                  <i className="bi bi-shield-exclamation fs-5"></i>
+                </div>
+                <h3 className="h6 fw-bold text-dark mb-1">{t('warningTitle')}</h3>
+                <p className="small text-secondary mb-0">{t('featureWarningDesc')}</p>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-lg-3">
+              <div className="ks-feature-preview-card">
+                <div className="p-2 rounded-circle bg-danger-subtle text-danger d-inline-flex mb-2">
+                  <i className="bi bi-activity fs-5"></i>
+                </div>
+                <h3 className="h6 fw-bold text-dark mb-1">{t('earthquakeTitle')}</h3>
+                <p className="small text-secondary mb-0">{t('featureEarthquakeDesc')}</p>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-lg-3">
+              <div className="ks-feature-preview-card">
+                <div className="p-2 rounded-circle bg-primary-subtle text-primary d-inline-flex mb-2">
+                  <i className="bi bi-hospital fs-5"></i>
+                </div>
+                <h3 className="h6 fw-bold text-dark mb-1">{t('hospitalTitle')}</h3>
+                <p className="small text-secondary mb-0">{t('featureHospitalDesc')}</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Monitored Location Summary & Feature Grid */}
       {location && (
         <>
-          <div className="p-3 bg-primary-subtle border border-primary-subtle rounded d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div className="d-flex align-items-center gap-2">
-              <i className="bi bi-pin-map-fill text-primary fs-5" aria-hidden="true"></i>
+          <div
+            className="ks-selected-location-banner d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-xs"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="d-flex align-items-center gap-3">
+              <div className="p-2 rounded-circle bg-primary text-white d-inline-flex shadow-xs">
+                <i className="bi bi-geo-alt-fill fs-5" aria-hidden="true"></i>
+              </div>
               <div>
-                <span className="small text-secondary text-uppercase fw-semibold d-block">
+                <span className="small text-primary fw-bold text-uppercase d-block" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
                   {t('selectedLocationLabel')}
                 </span>
-                <strong className="text-dark">
+                <strong className="text-dark fs-6">
                   {location.village.name}, {location.district.name}, {location.city.name}, {location.province.name}
                 </strong>
               </div>
             </div>
-            <span className="badge bg-primary">
+            <span className="badge bg-white text-primary border border-primary-subtle px-3 py-2 rounded-pill font-monospace small shadow-xs">
               ADM4: {location.village.code || location.adm4}
             </span>
           </div>
 
-          <div className="row g-4">
-            {/* Weather & Warnings Row */}
-            <div className="col-12 col-lg-7">
+          <div className="row g-4 align-items-start">
+            {/* Left Column: Weather and Hospitals (below alerts on small screens) */}
+            <div className="col-12 col-lg-7 order-2 order-lg-1 d-flex flex-column gap-4">
               <WeatherPanel
                 items={weatherData}
                 loading={loadingWeather}
-                error={getApiErrorMessage(errorWeather, t)}
+                error={errorWeather}
                 onRetry={() => location && fetchWeather(location.village.code || location.adm4)}
               />
-            </div>
-            <div className="col-12 col-lg-5">
-              <WarningPanel
-                warnings={warningData}
-                loading={loadingWarnings}
-                error={getApiErrorMessage(errorWarnings, t)}
-                onRetry={() => location && fetchWarnings(location.province.name)}
-              />
-            </div>
-
-            {/* Earthquakes & Hospitals Row */}
-            <div className="col-12 col-lg-5">
-              <EarthquakePanel
-                items={earthquakeData}
-                loading={loadingEarthquakes}
-                error={getApiErrorMessage(errorEarthquakes, t)}
-                onRetry={() => fetchEarthquakes()}
-              />
-            </div>
-            <div className="col-12 col-lg-7">
               <HospitalPanel
                 hospitals={hospitalData}
                 total={hospitalTotal}
                 loading={loadingHospitals}
                 loadingMore={loadingMoreHospitals}
-                error={getApiErrorMessage(errorHospitals, t)}
+                error={errorHospitals}
                 hasNextPage={hasNextHospitalPage}
                 onLoadMore={() =>
                   location &&
@@ -244,6 +276,22 @@ export function DashboardPage() {
                 onRetry={() =>
                   location && fetchHospitals(location.city.id, 1, false)
                 }
+              />
+            </div>
+
+            {/* Right Column: Warnings and Earthquakes (first on small screens) */}
+            <div className="col-12 col-lg-5 order-1 order-lg-2 d-flex flex-column gap-4">
+              <WarningPanel
+                warnings={warningData}
+                loading={loadingWarnings}
+                error={errorWarnings}
+                onRetry={() => location && fetchWarnings(location.province.name)}
+              />
+              <EarthquakePanel
+                items={earthquakeData}
+                loading={loadingEarthquakes}
+                error={errorEarthquakes}
+                onRetry={() => fetchEarthquakes()}
               />
             </div>
           </div>

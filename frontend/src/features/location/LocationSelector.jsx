@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocale } from '../../shared/i18n'
-import { getApiErrorMessage } from '../../shared/api/client'
 import {
   listProvinces,
   listCities,
@@ -35,7 +34,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
   const cityAbortRef = useRef(null)
   const districtAbortRef = useRef(null)
   const villageAbortRef = useRef(null)
-  const restoredLocationRef = useRef('')
+  const restoredRef = useRef(false)
 
   // Load provinces on mount
   const fetchProvinces = useCallback(async () => {
@@ -50,13 +49,13 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
       const result = await listProvinces(controller.signal)
       setProvinces(result.rows || [])
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorProvince(err)
+      if (err.name !== 'AbortError') {
+        setErrorProvince(err.message || t('genericError'))
       }
     } finally {
       setLoadingProvince(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchProvinces()
@@ -80,15 +79,14 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     try {
       const result = await listCities(provinceId, controller.signal)
       setCities(result.rows || [])
-      return result
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorCity(err)
+      if (err.name !== 'AbortError') {
+        setErrorCity(err.message || t('genericError'))
       }
     } finally {
       setLoadingCity(false)
     }
-  }, [])
+  }, [t])
 
   // Load districts when city changes
   const fetchDistricts = useCallback(async (cityId) => {
@@ -102,15 +100,14 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     try {
       const result = await listDistricts(cityId, controller.signal)
       setDistricts(result.rows || [])
-      return result
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorDistrict(err)
+      if (err.name !== 'AbortError') {
+        setErrorDistrict(err.message || t('genericError'))
       }
     } finally {
       setLoadingDistrict(false)
     }
-  }, [])
+  }, [t])
 
   // Load villages when district changes
   const fetchVillages = useCallback(async (districtId) => {
@@ -124,62 +121,57 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     try {
       const result = await listVillages(districtId, controller.signal)
       setVillages(result.rows || [])
-      return result
     } catch (err) {
-      if (err?.name !== 'AbortError') {
-        setErrorVillage(err)
+      if (err.name !== 'AbortError') {
+        setErrorVillage(err.message || t('genericError'))
       }
     } finally {
       setLoadingVillage(false)
     }
-  }, [])
+  }, [t])
 
   // Restore initial location if provided
   useEffect(() => {
-    if (!initialLocation || provinces.length === 0) return
+    if (!initialLocation || provinces.length === 0 || restoredRef.current) return
 
     const { provinceId, cityId, districtId, villageId } = initialLocation
-    const restoreKey = [provinceId, cityId, districtId, villageId].join(':')
-    if (restoredLocationRef.current === restoreKey) return
+    const prov = provinces.find((p) => String(p.id) === String(provinceId))
+    if (!prov) return
 
-    const province = provinces.find((p) => String(p.id) === String(provinceId))
-    if (!province) return
+    restoredRef.current = true
+    setSelectedProvinceId(String(provinceId))
 
-    restoredLocationRef.current = restoreKey
-    let cancelled = false
+    listCities(provinceId).then((cRes) => {
+      const cRows = cRes.rows || []
+      setCities(cRows)
+      setSelectedCityId(String(cityId))
+      const city = cRows.find((c) => String(c.id) === String(cityId))
 
-    const restore = async () => {
-      setSelectedProvinceId(String(province.id))
+      listDistricts(cityId).then((dRes) => {
+        const dRows = dRes.rows || []
+        setDistricts(dRows)
+        setSelectedDistrictId(String(districtId))
+        const district = dRows.find((d) => String(d.id) === String(districtId))
 
-      const cityResult = await fetchCities(province.id)
-      const city = cityResult?.rows?.find((item) => String(item.id) === String(cityId))
-      if (cancelled || !city) return
-      setSelectedCityId(String(city.id))
+        listVillages(districtId).then((vRes) => {
+          const vRows = vRes.rows || []
+          setVillages(vRows)
+          setSelectedVillageId(String(villageId))
+          const village = vRows.find((v) => String(v.id) === String(villageId))
 
-      const districtResult = await fetchDistricts(city.id)
-      const district = districtResult?.rows?.find((item) => String(item.id) === String(districtId))
-      if (cancelled || !district) return
-      setSelectedDistrictId(String(district.id))
-
-      const villageResult = await fetchVillages(district.id)
-      const village = villageResult?.rows?.find((item) => String(item.id) === String(villageId))
-      if (cancelled || !village) return
-      setSelectedVillageId(String(village.id))
-
-      onComplete?.({
-        province,
-        city,
-        district,
-        village,
-        adm4: village.code || initialLocation.adm4,
+          if (prov && city && district && village) {
+            onComplete?.({
+              province: prov,
+              city,
+              district,
+              village,
+              adm4: village.code || initialLocation.adm4,
+            })
+          }
+        })
       })
-    }
-
-    restore()
-    return () => {
-      cancelled = true
-    }
-  }, [initialLocation, provinces, fetchCities, fetchDistricts, fetchVillages, onComplete])
+    })
+  }, [initialLocation, provinces, onComplete])
 
   const handleProvinceChange = (e) => {
     const pId = e.target.value
@@ -261,24 +253,36 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
   }
 
   return (
-    <div className="ks-card mb-4" aria-labelledby="location-heading">
-      <div className="mb-3">
-        <h2 id="location-heading" className="h5 mb-1 text-dark fw-bold">
-          <i className="bi bi-geo-alt me-2 text-primary"></i>
-          {t('locationSectionTitle')}
-        </h2>
-        <p className="text-secondary small mb-0">{t('locationInstruction')}</p>
+    <div className="ks-card ks-location-card mb-4" aria-labelledby="location-heading">
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div className="d-flex align-items-center gap-2">
+          <div className="ks-icon-tile bg-primary-subtle text-primary">
+            <i className="bi bi-geo-alt-fill" aria-hidden="true"></i>
+          </div>
+          <div>
+            <h2 id="location-heading" className="h6 mb-0 text-dark fw-bold">
+              {t('locationSectionTitle')}
+            </h2>
+            <p className="text-secondary small mb-0">{t('locationInstruction')}</p>
+          </div>
+        </div>
       </div>
 
       <div className="row g-3">
         {/* Province */}
         <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="province-select" className="form-label fw-semibold small">
-            {t('province')}
+          <label htmlFor="province-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+            <span>
+              <span className="ks-step-badge me-2">1</span>
+              {t('province')}
+            </span>
+            {loadingProvince && (
+              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+            )}
           </label>
           <select
             id="province-select"
-            className="form-select"
+            className="form-select shadow-xs"
             value={selectedProvinceId}
             onChange={handleProvinceChange}
             disabled={loadingProvince}
@@ -295,7 +299,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
           </select>
           {errorProvince && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{getApiErrorMessage(errorProvince, t)}</span>
+              <span>{errorProvince}</span>
               <button
                 type="button"
                 className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
@@ -309,12 +313,18 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
 
         {/* City / Regency */}
         <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="city-select" className="form-label fw-semibold small">
-            {t('city')}
+          <label htmlFor="city-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+            <span>
+              <span className="ks-step-badge me-2">2</span>
+              {t('city')}
+            </span>
+            {loadingCity && (
+              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+            )}
           </label>
           <select
             id="city-select"
-            className="form-select"
+            className="form-select shadow-xs"
             value={selectedCityId}
             onChange={handleCityChange}
             disabled={!selectedProvinceId || loadingCity}
@@ -331,7 +341,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
           </select>
           {errorCity && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{getApiErrorMessage(errorCity, t)}</span>
+              <span>{errorCity}</span>
               <button
                 type="button"
                 className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
@@ -345,12 +355,18 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
 
         {/* District */}
         <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="district-select" className="form-label fw-semibold small">
-            {t('district')}
+          <label htmlFor="district-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+            <span>
+              <span className="ks-step-badge me-2">3</span>
+              {t('district')}
+            </span>
+            {loadingDistrict && (
+              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+            )}
           </label>
           <select
             id="district-select"
-            className="form-select"
+            className="form-select shadow-xs"
             value={selectedDistrictId}
             onChange={handleDistrictChange}
             disabled={!selectedCityId || loadingDistrict}
@@ -367,7 +383,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
           </select>
           {errorDistrict && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{getApiErrorMessage(errorDistrict, t)}</span>
+              <span>{errorDistrict}</span>
               <button
                 type="button"
                 className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
@@ -381,12 +397,18 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
 
         {/* Village */}
         <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="village-select" className="form-label fw-semibold small">
-            {t('village')}
+          <label htmlFor="village-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+            <span>
+              <span className="ks-step-badge me-2">4</span>
+              {t('village')}
+            </span>
+            {loadingVillage && (
+              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+            )}
           </label>
           <select
             id="village-select"
-            className="form-select"
+            className="form-select shadow-xs"
             value={selectedVillageId}
             onChange={handleVillageChange}
             disabled={!selectedDistrictId || loadingVillage}
@@ -403,7 +425,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
           </select>
           {errorVillage && (
             <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{getApiErrorMessage(errorVillage, t)}</span>
+              <span>{errorVillage}</span>
               <button
                 type="button"
                 className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"

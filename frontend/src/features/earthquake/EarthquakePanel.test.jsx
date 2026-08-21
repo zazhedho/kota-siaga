@@ -28,7 +28,10 @@ describe('EarthquakePanel', () => {
 
     renderEarthquakes({ items })
 
-    expect(screen.getByText('2026-08-20 14:00:00')).toBeInTheDocument()
+    expect(screen.getByText('Waktu kejadian')).toBeInTheDocument()
+    expect(screen.getByText('20 Agustus 2026')).toBeInTheDocument()
+    expect(screen.getByText('14.00')).toBeInTheDocument()
+    expect(screen.getByText('WIB (UTC+7)')).toBeInTheDocument()
     expect(screen.getByText('M 5.4')).toBeInTheDocument()
     expect(screen.getByText('15 km')).toBeInTheDocument()
     expect(screen.getByText(/Pusat gempa berada di laut/i)).toBeInTheDocument()

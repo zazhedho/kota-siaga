@@ -5,17 +5,41 @@ export function AppHeader() {
   const { t } = useLocale()
 
   return (
-    <header className="ks-header py-3">
+    <header className="ks-header sticky-top">
       <div className="container-fluid container-xl">
-        <div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3">
-          <div>
-            <div className="d-flex align-items-center gap-2">
-              <i className="bi bi-shield-check text-primary fs-3" aria-hidden="true"></i>
-              <h1 className="h4 mb-0 ks-brand-title">{t('brandTitle')}</h1>
+        <div className="ks-header-bar">
+          <div className="ks-header-brand">
+            <span className="ks-brand-badge" aria-hidden="true">
+              <i className="bi bi-shield-check"></i>
+            </span>
+            <div className="ks-brand-text">
+              <h1 className="ks-brand-title">{t('brandTitle')}</h1>
+              <p className="ks-brand-subtitle">
+                <span className="ks-live-dot" aria-hidden="true"></span>
+                <span className="ks-live-label">{t('livePortalBadge')}</span>
+                <span className="ks-brand-tagline">
+                  <span aria-hidden="true"> &middot; </span>
+                  {t('brandSubtitle')}
+                </span>
+              </p>
             </div>
-            <p className="text-secondary small mb-0 mt-1">{t('brandSubtitle')}</p>
           </div>
-          <div className="align-self-end align-self-sm-center">
+
+          <div className="ks-header-actions">
+            <div
+              className="ks-segmented ks-segmented-danger"
+              role="group"
+              aria-label={t('emergencyGroupAriaLabel')}
+            >
+              <a href="tel:112" className="ks-segment" aria-label={t('emergencyCall112')}>
+                <i className="bi bi-shield-shaded" aria-hidden="true"></i>
+                <span>112</span>
+              </a>
+              <a href="tel:119" className="ks-segment" aria-label={t('emergencyCall119')}>
+                <i className="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+                <span>119</span>
+              </a>
+            </div>
             <LanguageSwitcher />
           </div>
         </div>

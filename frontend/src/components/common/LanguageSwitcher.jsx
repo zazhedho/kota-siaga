@@ -1,26 +1,26 @@
 import { useLocale } from '../../shared/i18n'
 
+const LOCALES = [
+  { code: 'id', label: 'ID' },
+  { code: 'en', label: 'EN' },
+]
+
 export function LanguageSwitcher() {
   const { locale, setLocale, t } = useLocale()
 
   return (
-    <div className="btn-group" role="group" aria-label={t('languageAriaLabel')}>
-      <button
-        type="button"
-        className={`btn btn-sm ${locale === 'id' ? 'btn-primary' : 'btn-outline-secondary'}`}
-        onClick={() => setLocale('id')}
-        aria-pressed={locale === 'id'}
-      >
-        ID
-      </button>
-      <button
-        type="button"
-        className={`btn btn-sm ${locale === 'en' ? 'btn-primary' : 'btn-outline-secondary'}`}
-        onClick={() => setLocale('en')}
-        aria-pressed={locale === 'en'}
-      >
-        EN
-      </button>
+    <div className="ks-segmented" role="group" aria-label={t('languageAriaLabel')}>
+      {LOCALES.map(({ code, label }) => (
+        <button
+          key={code}
+          type="button"
+          className={`ks-segment ${locale === code ? 'ks-segment-active' : ''}`}
+          onClick={() => setLocale(code)}
+          aria-pressed={locale === code}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   )
 }

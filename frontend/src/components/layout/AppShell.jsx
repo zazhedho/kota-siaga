@@ -6,8 +6,11 @@ export function AppShell({ children }) {
 
   return (
     <div className="d-flex flex-column min-vh-100">
+      <a href="#main-content" className="ks-skip-link">
+        {t('skipToContent')}
+      </a>
       <AppHeader />
-      <main className="container-fluid container-xl py-4 flex-grow-1">
+      <main id="main-content" className="container-fluid container-xl py-4 flex-grow-1">
         {children}
       </main>
       <footer className="py-3 bg-white border-top text-center text-secondary small">
