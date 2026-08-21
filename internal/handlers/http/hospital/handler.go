@@ -9,7 +9,7 @@ import (
 
 	"kota-siaga/internal/dto"
 	handlercommon "kota-siaga/internal/handlers/http/common"
-	"kota-siaga/internal/integrations/apiindonesia"
+	"kota-siaga/internal/integrations/satusehat"
 	hospitalservice "kota-siaga/internal/services/hospital"
 	"kota-siaga/pkg/logger"
 	"kota-siaga/pkg/response"
@@ -20,7 +20,7 @@ import (
 )
 
 type Service interface {
-	ListHospitals(context.Context, string, int, int) (dto.Page[dto.Hospital], error)
+	ListHospitals(context.Context, string, string, int, int) (dto.Page[dto.Hospital], error)
 }
 
 type Handler struct {
@@ -37,7 +37,7 @@ func NewHospitalHandler(service Service) *Handler {
 	return NewHandler(service)
 }
 
-func Register(router gin.IRouter, client *apiindonesia.Client, redisClient *redis.Client) {
+func Register(router gin.IRouter, client *satusehat.Client, redisClient *redis.Client) {
 	if router == nil {
 		return
 	}
@@ -50,7 +50,7 @@ func Register(router gin.IRouter, client *apiindonesia.Client, redisClient *redi
 }
 
 func (h *Handler) GetHospitals(ctx *gin.Context) {
-	kabupatenID, page, perPage, err := parseQuery(ctx)
+	kabupatenID, search, page, perPage, err := parseQuery(ctx)
 	if err != nil {
 		writeInvalidQuery(ctx)
 		return
@@ -64,42 +64,48 @@ func (h *Handler) GetHospitals(ctx *gin.Context) {
 	if ctx.Request != nil {
 		requestContext = ctx.Request.Context()
 	}
-	result, err := h.Service.ListHospitals(requestContext, kabupatenID, page, perPage)
+	result, err := h.Service.ListHospitals(requestContext, kabupatenID, search, page, perPage)
 	if err != nil {
 		handleServiceError(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, response.PaginationResponse(
+	ctx.JSON(http.StatusOK, response.PaginationResponseWithTotalPages(
 		http.StatusOK,
 		result.Total,
 		result.Page,
 		result.PerPage,
+		result.TotalPages,
 		utils.GenerateLogId(ctx),
 		result.Data,
 	))
 }
 
-func parseQuery(ctx *gin.Context) (string, int, int, error) {
+func parseQuery(ctx *gin.Context) (string, string, int, int, error) {
 	kabupatenID, ok := ctx.GetQuery("kabupaten_id")
 	if !ok || kabupatenID == "" {
-		return "", 0, 0, errors.New("invalid hospital query")
+		return "", "", 0, 0, errors.New("invalid hospital query")
 	}
 	if err := hospitalservice.ValidateKabupatenID(kabupatenID); err != nil {
-		return "", 0, 0, err
+		return "", "", 0, 0, err
+	}
+
+	search, err := hospitalservice.NormalizeSearch(ctx.Query("search"))
+	if err != nil {
+		return "", "", 0, 0, err
 	}
 
 	page, err := queryInt(ctx, "page")
 	if err != nil {
-		return "", 0, 0, err
+		return "", "", 0, 0, err
 	}
 	perPage, err := queryInt(ctx, "per_page")
 	if err != nil {
-		return "", 0, 0, err
+		return "", "", 0, 0, err
 	}
 	if err := hospitalservice.ValidatePagination(page, perPage); err != nil {
-		return "", 0, 0, err
+		return "", "", 0, 0, err
 	}
-	return kabupatenID, page, perPage, nil
+	return kabupatenID, search, page, perPage, nil
 }
 
 func queryInt(ctx *gin.Context, key string) (int, error) {
@@ -115,7 +121,7 @@ func queryInt(ctx *gin.Context, key string) (int, error) {
 }
 
 func handleServiceError(ctx *gin.Context, err error) {
-	if errors.Is(err, hospitalservice.ErrInvalidKabupatenID) || errors.Is(err, hospitalservice.ErrInvalidPagination) {
+	if errors.Is(err, hospitalservice.ErrInvalidKabupatenID) || errors.Is(err, hospitalservice.ErrInvalidPagination) || errors.Is(err, hospitalservice.ErrInvalidSearch) {
 		writeInvalidQuery(ctx)
 		return
 	}
@@ -125,10 +131,10 @@ func handleServiceError(ctx *gin.Context, err error) {
 		return
 	}
 
-	var upstreamErr *apiindonesia.UpstreamError
+	var upstreamErr *satusehat.UpstreamError
 	if errors.As(err, &upstreamErr) && upstreamErr != nil {
 		logger.WriteLogWithContext(ctx, logger.LogLevelError, fmt.Sprintf("Hospital upstream request failed: status=%d code=%s", upstreamErr.StatusCode, handlercommon.SafeUpstreamCode(upstreamErr.Code)))
-		if upstreamErr.StatusCode == http.StatusNotFound {
+		if upstreamErr.StatusCode == http.StatusNotFound && upstreamErr.IsResourceError {
 			writeNotFound(ctx)
 			return
 		}

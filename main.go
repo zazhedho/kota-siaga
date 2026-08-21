@@ -14,6 +14,7 @@ import (
 	"kota-siaga/internal/integrations/apiindonesia"
 	"kota-siaga/internal/integrations/bmkg"
 	locationclient "kota-siaga/internal/integrations/locationservice"
+	"kota-siaga/internal/integrations/satusehat"
 	"kota-siaga/internal/router"
 	"kota-siaga/pkg/config"
 	"kota-siaga/pkg/logger"
@@ -78,6 +79,9 @@ func main() {
 	locationClient, err := locationclient.NewClient(config.LoadLocationServiceConfig())
 	FailOnError(err, "Invalid location service configuration")
 
+	hospitalClient, err := satusehat.NewClient(config.LoadSATUSEHATConfig())
+	FailOnError(err, "Invalid SATUSEHAT configuration")
+
 	redisClient, err := database.InitRedis()
 	if err != nil {
 		logger.WriteLog(logger.LogLevelWarn, "Redis unavailable; continuing without optional Redis features")
@@ -90,7 +94,7 @@ func main() {
 		logger.WriteLog(logger.LogLevelInfo, "Redis initialized")
 	}
 
-	routes := router.NewRoutes(redisClient, apiClient, locationClient, earthquakeClient)
+	routes := router.NewRoutes(redisClient, apiClient, locationClient, earthquakeClient, hospitalClient)
 	logger.WriteLog(logger.LogLevelInfo, "Public routes registered")
 
 	FailOnError(routes.App.Run(fmt.Sprintf(":%s", port)), "Failed to run service")

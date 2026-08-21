@@ -81,19 +81,26 @@ func errorTitle(code int) string {
 }
 
 func PaginationResponse(code, total, page, perPage int, logId uuid.UUID, data any) *PaginatedResponse {
-	res := new(PaginatedResponse)
-
 	var totalPages int
 	if total > 0 && perPage > 0 {
 		totalPages = int(math.Ceil(float64(total) / float64(perPage)))
 	} else if total > 0 {
 		totalPages = 1
 	}
+	return paginationResponse(code, total, page, perPage, totalPages, logId, data)
+}
+
+func PaginationResponseWithTotalPages(code, total, page, perPage, totalPages int, logId uuid.UUID, data any) *PaginatedResponse {
+	return paginationResponse(code, total, page, perPage, totalPages, logId, data)
+}
+
+func paginationResponse(code, total, page, perPage, totalPages int, logId uuid.UUID, data any) *PaginatedResponse {
+	res := new(PaginatedResponse)
 
 	hasNext := page < totalPages
 
 	message := messages.MsgSuccess
-	if total == 0 || page > totalPages {
+	if totalPages == 0 || page > totalPages {
 		message = messages.MsgNotFound
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,13 +20,15 @@ type upstreamFake struct {
 	err         error
 	calls       int
 	kabupatenID string
+	search      string
 	pageNumber  int
 	perPage     int
 }
 
-func (f *upstreamFake) ListHospitals(_ context.Context, kabupatenID string, page, perPage int) (dto.Page[dto.Hospital], error) {
+func (f *upstreamFake) ListHospitals(_ context.Context, kabupatenID, search string, page, perPage int) (dto.Page[dto.Hospital], error) {
 	f.calls++
 	f.kabupatenID = kabupatenID
+	f.search = search
 	f.pageNumber = page
 	f.perPage = perPage
 	return f.page, f.err
@@ -40,12 +43,12 @@ func TestServiceRejectsInvalidKabupatenIDAndPaginationBeforeUpstream(t *testing.
 		name string
 		call func() error
 	}{
-		{name: "missing kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, "", 1, 20); return err }},
-		{name: "non-numeric kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, "3273x", 1, 20); return err }},
-		{name: "whitespace kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, " 3273", 1, 20); return err }},
-		{name: "page zero", call: func() error { _, err := service.ListHospitals(ctx, "3273", 0, 20); return err }},
-		{name: "per page zero", call: func() error { _, err := service.ListHospitals(ctx, "3273", 1, 0); return err }},
-		{name: "per page over maximum", call: func() error { _, err := service.ListHospitals(ctx, "3273", 1, 201); return err }},
+		{name: "missing kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, "", "", 1, 20); return err }},
+		{name: "non-numeric kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, "3273x", "", 1, 20); return err }},
+		{name: "whitespace kabupaten ID", call: func() error { _, err := service.ListHospitals(ctx, " 3273", "", 1, 20); return err }},
+		{name: "page zero", call: func() error { _, err := service.ListHospitals(ctx, "3273", "", 0, 20); return err }},
+		{name: "per page zero", call: func() error { _, err := service.ListHospitals(ctx, "3273", "", 1, 0); return err }},
+		{name: "per page over maximum", call: func() error { _, err := service.ListHospitals(ctx, "3273", "", 1, 201); return err }},
 	}
 	for _, tt := range invalid {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,6 +62,32 @@ func TestServiceRejectsInvalidKabupatenIDAndPaginationBeforeUpstream(t *testing.
 	}
 }
 
+func TestNormalizeSearchTrimsAndValidatesRuneLength(t *testing.T) {
+	valid := strings.Repeat("病", 100)
+	got, err := NormalizeSearch(" \t" + valid + "\n")
+	if err != nil || got != valid {
+		t.Fatalf("NormalizeSearch() = %q, %v", got, err)
+	}
+	if got, err := NormalizeSearch(" \t "); err != nil || got != "" {
+		t.Fatalf("expected whitespace search to normalize empty, got %q, %v", got, err)
+	}
+	if _, err := NormalizeSearch(strings.Repeat("病", 101)); !errors.Is(err, ErrInvalidSearch) {
+		t.Fatalf("expected ErrInvalidSearch for 101 runes, got %v", err)
+	}
+}
+
+func TestServiceForwardsNormalizedSearch(t *testing.T) {
+	fake := &upstreamFake{}
+	service := NewService(fake, nil)
+
+	if _, err := service.ListHospitals(context.Background(), "3273", "  Hasan Sadikin  ", 1, 20); err != nil {
+		t.Fatalf("ListHospitals() error = %v", err)
+	}
+	if fake.calls != 1 || fake.kabupatenID != "3273" || fake.search != "Hasan Sadikin" || fake.pageNumber != 1 || fake.perPage != 20 {
+		t.Fatalf("unexpected upstream call: calls=%d id=%q search=%q page=%d per_page=%d", fake.calls, fake.kabupatenID, fake.search, fake.pageNumber, fake.perPage)
+	}
+}
+
 func TestServicePreservesLeadingZeroKabupatenIDAndReturnsPage(t *testing.T) {
 	want := dto.Page[dto.Hospital]{
 		Data:  []dto.Hospital{{ID: "hospital-1", Name: "Official Hospital"}},
@@ -67,22 +96,22 @@ func TestServicePreservesLeadingZeroKabupatenIDAndReturnsPage(t *testing.T) {
 	fake := &upstreamFake{page: want}
 	service := NewService(fake, nil)
 
-	got, err := service.ListHospitals(context.Background(), "003273", 1, 200)
+	got, err := service.ListHospitals(context.Background(), "003273", "", 1, 200)
 	if err != nil {
 		t.Fatalf("ListHospitals() error = %v", err)
 	}
 	if got.Data[0].ID != "hospital-1" || got.Total != 1 || got.Page != 1 || got.PerPage != 200 || got.TotalPages != 1 {
 		t.Fatalf("unexpected hospital page: %+v", got)
 	}
-	if fake.calls != 1 || fake.kabupatenID != "003273" || fake.pageNumber != 1 || fake.perPage != 200 {
-		t.Fatalf("unexpected upstream call: calls=%d id=%q page=%d per_page=%d", fake.calls, fake.kabupatenID, fake.pageNumber, fake.perPage)
+	if fake.calls != 1 || fake.kabupatenID != "003273" || fake.search != "" || fake.pageNumber != 1 || fake.perPage != 200 {
+		t.Fatalf("unexpected upstream call: calls=%d id=%q search=%q page=%d per_page=%d", fake.calls, fake.kabupatenID, fake.search, fake.pageNumber, fake.perPage)
 	}
 }
 
 func TestServiceUsesCachedPageWithoutUpstreamCall(t *testing.T) {
 	redisClient, mock := redismock.NewClientMock()
 	defer redisClient.Close()
-	key := hospitalcache.Key("3273", 1, 20)
+	key := hospitalcache.Key("3273", "hasan", 1, 20)
 	cached := dto.Page[dto.Hospital]{
 		Data:  []dto.Hospital{{ID: "cached", Name: "Cached Hospital"}},
 		Total: 1, Page: 1, PerPage: 20, TotalPages: 1,
@@ -95,7 +124,7 @@ func TestServiceUsesCachedPageWithoutUpstreamCall(t *testing.T) {
 
 	fake := &upstreamFake{err: errors.New("upstream must not be called")}
 	service := NewService(fake, redisClient)
-	got, err := service.ListHospitals(context.Background(), "3273", 1, 20)
+	got, err := service.ListHospitals(context.Background(), "3273", " Hasan ", 1, 20)
 	if err != nil {
 		t.Fatalf("cached request error = %v", err)
 	}
@@ -114,7 +143,7 @@ func TestServiceFailsOpenAfterRedisReadErrorAndCachesSuccessfulResult(t *testing
 	t.Setenv("HOSPITAL_CACHE_TTL", "90m")
 	redisClient, mock := redismock.NewClientMock()
 	defer redisClient.Close()
-	key := hospitalcache.Key("3273", 1, 20)
+	key := hospitalcache.Key("3273", "", 1, 20)
 	mock.ExpectGet(key).SetErr(errors.New("redis unavailable"))
 	fresh := dto.Page[dto.Hospital]{
 		Data:  []dto.Hospital{{ID: "fresh", Name: "Fresh Hospital"}},
@@ -127,7 +156,7 @@ func TestServiceFailsOpenAfterRedisReadErrorAndCachesSuccessfulResult(t *testing
 	mock.ExpectSet(key, string(payload), 90*time.Minute).SetVal("OK")
 
 	service := NewService(&upstreamFake{page: fresh}, redisClient)
-	got, err := service.ListHospitals(context.Background(), "3273", 1, 20)
+	got, err := service.ListHospitals(context.Background(), "3273", "", 1, 20)
 	if err != nil || len(got.Data) != 1 || got.Data[0].ID != "fresh" {
 		t.Fatalf("unexpected Redis fallback result: got=%+v err=%v", got, err)
 	}
@@ -139,7 +168,7 @@ func TestServiceFailsOpenAfterRedisReadErrorAndCachesSuccessfulResult(t *testing
 func TestServiceFailsOpenAfterRedisWriteError(t *testing.T) {
 	redisClient, mock := redismock.NewClientMock()
 	defer redisClient.Close()
-	key := hospitalcache.Key("3273", 1, 20)
+	key := hospitalcache.Key("3273", "", 1, 20)
 	mock.ExpectGet(key).SetErr(redis.Nil)
 	fresh := dto.Page[dto.Hospital]{
 		Data:  []dto.Hospital{{ID: "fresh"}},
@@ -152,7 +181,7 @@ func TestServiceFailsOpenAfterRedisWriteError(t *testing.T) {
 	mock.ExpectSet(key, string(payload), 24*time.Hour).SetErr(errors.New("redis unavailable"))
 
 	service := NewService(&upstreamFake{page: fresh}, redisClient)
-	got, err := service.ListHospitals(context.Background(), "3273", 1, 20)
+	got, err := service.ListHospitals(context.Background(), "3273", "", 1, 20)
 	if err != nil || len(got.Data) != 1 || got.Data[0].ID != "fresh" {
 		t.Fatalf("expected fresh result despite Redis write failure: got=%+v err=%v", got, err)
 	}
@@ -164,12 +193,12 @@ func TestServiceFailsOpenAfterRedisWriteError(t *testing.T) {
 func TestServiceDoesNotCacheUpstreamFailure(t *testing.T) {
 	redisClient, mock := redismock.NewClientMock()
 	defer redisClient.Close()
-	key := hospitalcache.Key("3273", 1, 20)
+	key := hospitalcache.Key("3273", "", 1, 20)
 	mock.ExpectGet(key).SetErr(redis.Nil)
 	wantErr := errors.New("upstream body and API key stay private")
 
 	service := NewService(&upstreamFake{err: wantErr}, redisClient)
-	_, err := service.ListHospitals(context.Background(), "3273", 1, 20)
+	_, err := service.ListHospitals(context.Background(), "3273", "", 1, 20)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected upstream error %v, got %v", wantErr, err)
 	}
@@ -180,7 +209,7 @@ func TestServiceDoesNotCacheUpstreamFailure(t *testing.T) {
 
 func TestServiceReturnsMissingClientSentinel(t *testing.T) {
 	service := NewService(nil, nil)
-	_, err := service.ListHospitals(context.Background(), "3273", 1, 20)
+	_, err := service.ListHospitals(context.Background(), "3273", "", 1, 20)
 	if !errors.Is(err, ErrHospitalClient) {
 		t.Fatalf("expected ErrHospitalClient, got %v", err)
 	}

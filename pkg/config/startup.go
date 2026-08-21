@@ -15,12 +15,20 @@ func ValidateStartupConfig(port string) error {
 
 	problems = append(problems, validateRequiredPort(port)...)
 	problems = append(problems, validateAPIIndonesiaConfig()...)
+	problems = append(problems, validateSATUSEHATConfig()...)
 	problems = append(problems, validateBMKGConfig()...)
 	problems = append(problems, validateLocationServiceConfig()...)
 	problems = append(problems, validateOptionalRedisConfig()...)
 
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "; "))
+	}
+	return nil
+}
+
+func validateSATUSEHATConfig() []string {
+	if err := ValidateSATUSEHATConfig(LoadSATUSEHATConfig()); err != nil {
+		return strings.Split(err.Error(), "; ")
 	}
 	return nil
 }

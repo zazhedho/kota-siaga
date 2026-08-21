@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	sharedcache "kota-siaga/internal/cache"
 	hospitalcache "kota-siaga/internal/cache/hospital"
@@ -13,14 +15,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const maxSearchLength = 100
+
 var (
 	ErrInvalidPagination  = errors.New("invalid pagination")
 	ErrInvalidKabupatenID = errors.New("invalid kabupaten ID")
+	ErrInvalidSearch      = errors.New("invalid hospital search")
 	ErrHospitalClient     = errors.New("hospital upstream client is not configured")
 )
 
 type UpstreamClient interface {
-	ListHospitals(context.Context, string, int, int) (dto.Page[dto.Hospital], error)
+	ListHospitals(context.Context, string, string, int, int) (dto.Page[dto.Hospital], error)
 }
 
 type Service struct {
@@ -60,7 +65,19 @@ func ValidateKabupatenID(id string) error {
 	return nil
 }
 
-func (s *Service) ListHospitals(ctx context.Context, kabupatenID string, page, perPage int) (dto.Page[dto.Hospital], error) {
+func NormalizeSearch(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > maxSearchLength {
+		return "", fmt.Errorf("%w: search must be 100 characters or fewer", ErrInvalidSearch)
+	}
+	return value, nil
+}
+
+func (s *Service) ListHospitals(ctx context.Context, kabupatenID, search string, page, perPage int) (dto.Page[dto.Hospital], error) {
+	search, err := NormalizeSearch(search)
+	if err != nil {
+		return dto.Page[dto.Hospital]{}, err
+	}
 	if err := ValidateKabupatenID(kabupatenID); err != nil {
 		return dto.Page[dto.Hospital]{}, err
 	}
@@ -71,7 +88,7 @@ func (s *Service) ListHospitals(ctx context.Context, kabupatenID string, page, p
 		return dto.Page[dto.Hospital]{}, ErrHospitalClient
 	}
 
-	key := hospitalcache.Key(kabupatenID, page, perPage)
+	key := hospitalcache.Key(kabupatenID, search, page, perPage)
 	var cached dto.Page[dto.Hospital]
 	hit, err := sharedcache.GetJSON(ctx, s.Redis, key, &cached)
 	if err != nil {
@@ -80,7 +97,7 @@ func (s *Service) ListHospitals(ctx context.Context, kabupatenID string, page, p
 		return cached, nil
 	}
 
-	result, err := s.Client.ListHospitals(ctx, kabupatenID, page, perPage)
+	result, err := s.Client.ListHospitals(ctx, kabupatenID, search, page, perPage)
 	if err != nil {
 		return dto.Page[dto.Hospital]{}, err
 	}

@@ -59,3 +59,14 @@ func TestPaginationResponseCalculatesPageState(t *testing.T) {
 		t.Fatalf("unexpected pagination metadata: %+v", got)
 	}
 }
+
+func TestPaginationResponseCanUseExplicitPageCountWhenTotalIsUnknown(t *testing.T) {
+	got := PaginationResponseWithTotalPages(http.StatusOK, 0, 2, 20, 3, uuid.New(), []string{"item"})
+
+	if got.TotalData != 0 || got.TotalPages != 3 || !got.NextPage || !got.PrevPage {
+		t.Fatalf("unexpected explicit pagination metadata: %+v", got)
+	}
+	if got.Message != "Success" {
+		t.Fatalf("expected success for a non-empty page with unknown total, got %q", got.Message)
+	}
+}

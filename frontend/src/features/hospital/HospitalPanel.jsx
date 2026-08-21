@@ -1,5 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '../../shared/i18n'
 import { AsyncLoading, AsyncError, AsyncEmpty } from '../../components/common/AsyncState'
+
+const capSearch = (value) => (typeof value === 'string' ? Array.from(value).slice(0, 100).join('') : '')
+const normalizeSearch = (value) => capSearch(value).trim()
 
 export function HospitalPanel({
   hospitals = [],
@@ -8,10 +12,77 @@ export function HospitalPanel({
   loadingMore = false,
   error = null,
   hasNextPage = false,
+  search = '',
+  onSearch,
   onLoadMore,
   onRetry,
 }) {
   const { t } = useLocale()
+  const normalizedSearch = normalizeSearch(search)
+  const [inputValue, setInputValue] = useState(normalizedSearch)
+  const searchTimerRef = useRef(null)
+  const lastEmittedSearchRef = useRef(normalizedSearch)
+
+  useEffect(() => {
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+
+    const nextSearch = normalizeSearch(search)
+    setInputValue(nextSearch)
+    lastEmittedSearchRef.current = nextSearch
+  }, [search])
+
+  useEffect(() => () => {
+    if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current)
+  }, [])
+
+  const emitSearch = (value) => {
+    const nextSearch = normalizeSearch(value)
+    if (nextSearch && Array.from(nextSearch).length < 2) return
+    if (nextSearch === lastEmittedSearchRef.current) return
+
+    lastEmittedSearchRef.current = nextSearch
+    onSearch?.(nextSearch)
+  }
+
+  const scheduleSearch = (value) => {
+    if (searchTimerRef.current !== null) window.clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = window.setTimeout(() => {
+      searchTimerRef.current = null
+      emitSearch(value)
+    }, 300)
+  }
+
+  const handleSearchChange = (event) => {
+    const nextValue = capSearch(event.target.value)
+    setInputValue(nextValue)
+    scheduleSearch(nextValue)
+  }
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault()
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+    emitSearch(inputValue)
+  }
+
+  const handleSearchClear = () => {
+    setInputValue('')
+    scheduleSearch('')
+  }
+
+  let liveStatus = t('hospitalResultsStatus', { count: hospitals.length })
+  if (loading || loadingMore) {
+    liveStatus = t('loading')
+  } else if (error !== null && error !== undefined) {
+    liveStatus = error ? `${t('genericError')}: ${error}` : t('genericError')
+  } else if (hospitals.length === 0 && normalizedSearch) {
+    liveStatus = t('hospitalSearchEmpty')
+  }
 
   return (
     <div className="ks-card" aria-labelledby="hospitals-heading">
@@ -36,11 +107,69 @@ export function HospitalPanel({
         </div>
       </div>
 
+      <form
+        className="ks-hospital-search"
+        role="search"
+        aria-label={t('hospitalSearchLabel')}
+        onSubmit={handleSearchSubmit}
+      >
+        <label htmlFor="hospital-search-input" className="form-label fw-semibold small text-dark mb-1">
+          {t('hospitalSearchLabel')}
+        </label>
+        <div className="ks-hospital-search-control">
+          <i className="bi bi-search ks-hospital-search-icon" aria-hidden="true"></i>
+          <input
+            id="hospital-search-input"
+            className="form-control"
+            type="text"
+            value={inputValue}
+            placeholder={t('hospitalSearchPlaceholder')}
+            aria-describedby="hospital-search-hint"
+            onChange={handleSearchChange}
+          />
+          {inputValue && (
+            <button
+              type="button"
+              className="ks-hospital-search-clear"
+              aria-label={t('hospitalSearchClear')}
+              onClick={handleSearchClear}
+            >
+              <i className="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          )}
+        </div>
+        <p id="hospital-search-hint" className="small text-secondary mb-0 mt-1">
+          {t('hospitalSearchHint')}
+        </p>
+      </form>
+
+      <div id="hospital-results" aria-busy={loading || loadingMore}>
+        <span className="visually-hidden" aria-live="polite">
+          {liveStatus}
+        </span>
+
       {loading && <AsyncLoading />}
 
       {!loading && error && <AsyncError message={error} onRetry={onRetry} />}
 
-      {!loading && !error && hospitals.length === 0 && (
+      {!loading && !error && hospitals.length === 0 && normalizedSearch && (
+        <AsyncEmpty
+          icon="bi-search"
+          title={t('hospitalSearchEmptyTitle')}
+          message={t('hospitalSearchEmpty')}
+        >
+          <button
+            type="button"
+            className="btn btn-link btn-sm text-decoration-none"
+            onClick={handleSearchClear}
+          >
+            <i className="bi bi-x-circle me-1" aria-hidden="true"></i>
+            {t('hospitalSearchClearAction')}
+          </button>
+        </AsyncEmpty>
+      )}
+
+      {!loading && !error && hospitals.length === 0 && !normalizedSearch && (
         <AsyncEmpty
           icon="bi-hospital"
           title={t('emptyHospitalsTitle')}
@@ -158,6 +287,7 @@ export function HospitalPanel({
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"kota-siaga/internal/dto"
-	"kota-siaga/internal/integrations/apiindonesia"
+	"kota-siaga/internal/integrations/satusehat"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,13 +21,15 @@ type serviceFake struct {
 	err         error
 	calls       int
 	kabupatenID string
+	search      string
 	pageNumber  int
 	perPage     int
 }
 
-func (f *serviceFake) ListHospitals(_ context.Context, kabupatenID string, page, perPage int) (dto.Page[dto.Hospital], error) {
+func (f *serviceFake) ListHospitals(_ context.Context, kabupatenID, search string, page, perPage int) (dto.Page[dto.Hospital], error) {
 	f.calls++
 	f.kabupatenID = kabupatenID
+	f.search = search
 	f.pageNumber = page
 	f.perPage = perPage
 	return f.page, f.err
@@ -46,6 +48,7 @@ func TestHandlerRejectsInvalidHospitalQueryBeforeService(t *testing.T) {
 		"kabupaten_id=3273&page=0&per_page=20",
 		"kabupaten_id=3273&page=1&per_page=201",
 		"kabupaten_id=3273&page=nope&per_page=20",
+		"kabupaten_id=3273&search=" + strings.Repeat("a", 101) + "&page=1&per_page=20",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/hospitals?"+query, nil))
@@ -74,7 +77,7 @@ func TestHandlerWritesPaginatedHospitalResponseWithApplicationFields(t *testing.
 	router := gin.New()
 	router.GET("/api/hospitals", handler.GetHospitals)
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/hospitals?kabupaten_id=003273&page=2&per_page=20", nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/hospitals?kabupaten_id=003273&search=%20Hasan%20&page=2&per_page=20", nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
@@ -92,8 +95,8 @@ func TestHandlerWritesPaginatedHospitalResponseWithApplicationFields(t *testing.
 	if strings.Contains(body, `"jenis"`) || strings.Contains(body, `"kelas"`) || strings.Contains(body, `"province_id"`) {
 		t.Fatalf("response exposed source field names: %s", body)
 	}
-	if service.calls != 1 || service.kabupatenID != "003273" || service.pageNumber != 2 || service.perPage != 20 {
-		t.Fatalf("unexpected service call: calls=%d id=%q page=%d per_page=%d", service.calls, service.kabupatenID, service.pageNumber, service.perPage)
+	if service.calls != 1 || service.kabupatenID != "003273" || service.search != "Hasan" || service.pageNumber != 2 || service.perPage != 20 {
+		t.Fatalf("unexpected service call: calls=%d id=%q search=%q page=%d per_page=%d", service.calls, service.kabupatenID, service.search, service.pageNumber, service.perPage)
 	}
 }
 
@@ -134,9 +137,10 @@ func TestHandlerMapsTypedUpstreamNotFoundToSafeNotFound(t *testing.T) {
 		apiKey       = "SECRET_API_KEY"
 		upstreamBody = "private upstream body"
 	)
-	handler := NewHandler(&serviceFake{err: fmt.Errorf("upstream response %s with key %s: %w", upstreamBody, apiKey, &apiindonesia.UpstreamError{
-		StatusCode: http.StatusNotFound,
-		Code:       "HOSPITAL_NOT_FOUND",
+	handler := NewHandler(&serviceFake{err: fmt.Errorf("upstream response %s with key %s: %w", upstreamBody, apiKey, &satusehat.UpstreamError{
+		StatusCode:      http.StatusNotFound,
+		Code:            "HOSPITAL_NOT_FOUND",
+		IsResourceError: true,
 	})})
 	router := gin.New()
 	router.GET("/api/hospitals", handler.GetHospitals)
@@ -157,9 +161,36 @@ func TestHandlerMapsTypedUpstreamNotFoundToSafeNotFound(t *testing.T) {
 	}
 }
 
+func TestHandlerMapsUnmarkedTypedNotFoundToSafeBadGateway(t *testing.T) {
+	const (
+		apiKey       = "SECRET_API_KEY"
+		upstreamBody = "private upstream body"
+	)
+	handler := NewHandler(&serviceFake{err: fmt.Errorf("upstream response %s with key %s: %w", upstreamBody, apiKey, &satusehat.UpstreamError{
+		StatusCode: http.StatusNotFound,
+		Code:       "OAUTH_NOT_FOUND",
+	})})
+	router := gin.New()
+	router.GET("/api/hospitals", handler.GetHospitals)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/hospitals?kabupaten_id=3273&page=1&per_page=20", nil))
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if strings.Contains(body, "Hospital not found") {
+		t.Fatalf("unexpected public not-found response: %s", body)
+	}
+	for _, secret := range []string{apiKey, upstreamBody, "upstream response", "OAUTH_NOT_FOUND"} {
+		if strings.Contains(body, secret) {
+			t.Fatalf("response exposed upstream detail %q: %s", secret, body)
+		}
+	}
+}
 func TestHandlerMapsOtherUpstreamAndMalformedFailuresToSafeBadGateway(t *testing.T) {
 	for _, wantErr := range []error{
-		fmt.Errorf("upstream response private body with key SECRET_API_KEY: %w", &apiindonesia.UpstreamError{StatusCode: http.StatusBadGateway, Code: "UPSTREAM_ERROR"}),
+		fmt.Errorf("upstream response private body with key SECRET_API_KEY: %w", &satusehat.UpstreamError{StatusCode: http.StatusBadGateway, Code: "UPSTREAM_ERROR"}),
 		errors.New("malformed upstream payload details"),
 	} {
 		handler := NewHandler(&serviceFake{err: wantErr})

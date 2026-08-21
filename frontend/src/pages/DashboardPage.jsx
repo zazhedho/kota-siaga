@@ -10,6 +10,7 @@ import { listWarnings } from '../features/warning/warningService'
 import { listLatest } from '../features/earthquake/earthquakeService'
 import { listHospitals } from '../features/hospital/hospitalService'
 import { readStoredLocation, writeStoredLocation, clearStoredLocation } from '../shared/storage'
+import { getApiErrorMessage } from '../shared/api/client'
 
 export function DashboardPage() {
   const { t } = useLocale()
@@ -39,8 +40,10 @@ export function DashboardPage() {
   const [loadingHospitals, setLoadingHospitals] = useState(false)
   const [loadingMoreHospitals, setLoadingMoreHospitals] = useState(false)
   const [errorHospitals, setErrorHospitals] = useState(null)
+  const [hospitalSearch, setHospitalSearch] = useState('')
 
   const abortControllerRef = useRef(null)
+  const hospitalRequestIdRef = useRef(0)
 
   const fetchWeather = useCallback(async (villageCode, signal) => {
     setLoadingWeather(true)
@@ -87,16 +90,22 @@ export function DashboardPage() {
     }
   }, [t])
 
-  const fetchHospitals = useCallback(async (cityId, page = 1, append = false, signal) => {
+  const fetchHospitals = useCallback(async (cityId, page = 1, append = false, signal, search = '') => {
+    const requestId = ++hospitalRequestIdRef.current
+    const normalizedSearch = typeof search === 'string' ? search.trim() : ''
+
     if (append) {
       setLoadingMoreHospitals(true)
     } else {
       setLoadingHospitals(true)
+      setLoadingMoreHospitals(false)
       setErrorHospitals(null)
     }
 
     try {
-      const result = await listHospitals(cityId, page, signal)
+      const result = await listHospitals(cityId, page, normalizedSearch, signal)
+      if (requestId !== hospitalRequestIdRef.current) return
+
       if (append) {
         setHospitalData((prev) => [...prev, ...(result.rows || [])])
       } else {
@@ -106,14 +115,31 @@ export function DashboardPage() {
       setHospitalPage(result.page)
       setHasNextHospitalPage(result.nextPage)
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        setErrorHospitals(err.message || t('genericError'))
+      if (requestId === hospitalRequestIdRef.current && err.name !== 'AbortError') {
+        setErrorHospitals(getApiErrorMessage(err, t) || t('genericError'))
       }
     } finally {
-      setLoadingHospitals(false)
-      setLoadingMoreHospitals(false)
+      if (requestId === hospitalRequestIdRef.current) {
+        setLoadingHospitals(false)
+        setLoadingMoreHospitals(false)
+      }
     }
   }, [t])
+
+  const handleHospitalSearch = useCallback((search) => {
+    const normalizedSearch = typeof search === 'string' ? search.trim() : ''
+    setHospitalSearch(normalizedSearch)
+
+    if (location) {
+      fetchHospitals(
+        location.city.id,
+        1,
+        false,
+        abortControllerRef.current?.signal,
+        normalizedSearch,
+      )
+    }
+  }, [fetchHospitals, location])
 
   const loadAllFeatures = useCallback((loc) => {
     if (abortControllerRef.current) {
@@ -130,11 +156,20 @@ export function DashboardPage() {
     fetchWeather(villageCode, controller.signal)
     fetchWarnings(provinceName, controller.signal)
     fetchEarthquakes(controller.signal)
-    fetchHospitals(cityId, 1, false, controller.signal)
+    fetchHospitals(cityId, 1, false, controller.signal, '')
   }, [fetchWeather, fetchWarnings, fetchEarthquakes, fetchHospitals])
 
   const handleLocationComplete = useCallback((selectedLoc) => {
     setLocation(selectedLoc)
+    hospitalRequestIdRef.current += 1
+    setHospitalSearch('')
+    setHospitalData([])
+    setHospitalTotal(0)
+    setHospitalPage(1)
+    setHasNextHospitalPage(false)
+    setLoadingHospitals(false)
+    setLoadingMoreHospitals(false)
+    setErrorHospitals(null)
 
     if (!selectedLoc) {
       clearStoredLocation()
@@ -144,8 +179,6 @@ export function DashboardPage() {
       setWeatherData([])
       setWarningData([])
       setEarthquakeData([])
-      setHospitalData([])
-      setHospitalTotal(0)
       return
     }
 
@@ -263,18 +296,34 @@ export function DashboardPage() {
                 onRetry={() => location && fetchWeather(location.village.code || location.adm4)}
               />
               <HospitalPanel
+                key={location.village.code || location.adm4}
                 hospitals={hospitalData}
                 total={hospitalTotal}
                 loading={loadingHospitals}
                 loadingMore={loadingMoreHospitals}
                 error={errorHospitals}
                 hasNextPage={hasNextHospitalPage}
+                search={hospitalSearch}
+                onSearch={handleHospitalSearch}
                 onLoadMore={() =>
                   location &&
-                  fetchHospitals(location.city.id, hospitalPage + 1, true)
+                  fetchHospitals(
+                    location.city.id,
+                    hospitalPage + 1,
+                    true,
+                    abortControllerRef.current?.signal,
+                    hospitalSearch,
+                  )
                 }
                 onRetry={() =>
-                  location && fetchHospitals(location.city.id, 1, false)
+                  location &&
+                  fetchHospitals(
+                    location.city.id,
+                    1,
+                    false,
+                    abortControllerRef.current?.signal,
+                    hospitalSearch,
+                  )
                 }
               />
             </div>
