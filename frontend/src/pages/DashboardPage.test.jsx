@@ -111,6 +111,16 @@ describe('DashboardPage', () => {
     })
   })
 
+  it('renders each welcome feature label only once', async () => {
+    renderDashboard()
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+
+    expect(screen.getAllByText('Prakiraan Cuaca (3 Hari)')).toHaveLength(1)
+    expect(screen.getAllByText('Peringatan Dini Cuaca')).toHaveLength(1)
+    expect(screen.getAllByText('Gempa Bumi Terkini')).toHaveLength(1)
+    expect(screen.getAllByText('Fasilitas Kesehatan di Wilayah Ini')).toHaveLength(1)
+  })
+
   it('renders initial prompt and starts all requests upon village selection', async () => {
     const user = userEvent.setup()
     renderDashboard()
@@ -152,7 +162,12 @@ describe('DashboardPage', () => {
     })
     expect(localStorage.getItem('kota-siaga.location')).not.toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
+    const changeLocationButton = screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i })
+    expect(changeLocationButton.querySelector('i')).toHaveClass('bi-pencil-square')
+
+    await user.click(changeLocationButton)
+
+    expect(changeLocationButton.querySelector('i')).toHaveClass('bi-pencil-square')
 
     await waitFor(() => {
       expect(screen.getByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
@@ -161,6 +176,27 @@ describe('DashboardPage', () => {
       expect(screen.getByRole('combobox', { name: /Kecamatan|District/i })).toHaveValue('SUKAJADI')
       expect(screen.getByRole('combobox', { name: /Kelurahan\/Desa|Village/i })).toHaveValue('PASTEUR')
     })
+  })
+
+  it('resets the complete monitored location', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
+    await chooseOption(user, /Kelurahan\/Desa|Village/i, 'PASTEUR')
+
+    await waitFor(() => expect(localStorage.getItem('kota-siaga.location')).not.toBeNull())
+    await user.click(screen.getByRole('button', { name: /Reset Wilayah|Reset Location/i }))
+
+    expect(localStorage.getItem('kota-siaga.location')).toBeNull()
+    expect(screen.queryByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /Provinsi|Province/i })).toHaveValue('')
+    expect(
+      screen.getByText(/Silakan pilih lokasi lengkap|Please select a complete location/i),
+    ).toBeInTheDocument()
   })
 
   it('allows changing only the village without re-selecting province, city, or district', async () => {

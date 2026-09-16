@@ -37,6 +37,9 @@ describe('EarthquakePanel', () => {
     expect(screen.getByText(/Pusat gempa berada di laut/i)).toBeInTheDocument()
     expect(screen.getByText('Tidak berpotensi tsunami')).toBeInTheDocument()
     expect(screen.getByText('III Garut, II Bandung')).toBeInTheDocument()
+    expect(screen.getByText('Waktu kejadian').closest('.ks-earthquake-time')?.parentElement).toHaveClass(
+      'ks-earthquake-summary',
+    )
   })
 
   it('renders empty message when no earthquakes', () => {

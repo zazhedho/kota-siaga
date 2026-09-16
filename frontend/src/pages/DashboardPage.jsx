@@ -14,7 +14,8 @@ import { getApiErrorMessage } from '../shared/api/client'
 
 export function DashboardPage() {
   const { t } = useLocale()
-  const [storedLocation] = useState(() => readStoredLocation())
+  const [storedLocation, setStoredLocation] = useState(() => readStoredLocation())
+  const [locationResetVersion, setLocationResetVersion] = useState(0)
   const [location, setLocation] = useState(null)
   const [isLocationSelectorCollapsed, setIsLocationSelectorCollapsed] = useState(() => Boolean(storedLocation))
 
@@ -193,6 +194,12 @@ export function DashboardPage() {
     setIsLocationSelectorCollapsed((prev) => !prev)
   }, [])
 
+  const handleResetLocation = useCallback(() => {
+    setStoredLocation(null)
+    setLocationResetVersion((version) => version + 1)
+    handleLocationComplete(null)
+  }, [handleLocationComplete])
+
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -205,6 +212,7 @@ export function DashboardPage() {
     <div className="d-flex flex-column gap-3 gap-md-4">
       {/* Cascading Location Controls - expandable/collapsible */}
       <LocationSelector
+        key={locationResetVersion}
         initialLocation={storedLocation}
         onComplete={handleLocationComplete}
         collapsed={location ? isLocationSelectorCollapsed : false}
@@ -289,25 +297,6 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Mobile Only: Compact clean micro-pills to eliminate clutter */}
-          <div className="d-flex d-md-none flex-wrap justify-content-center gap-2 pt-2">
-            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
-              <i className="bi bi-cloud-sun text-info me-1"></i>
-              <span>{t('weatherTitle')}</span>
-            </span>
-            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
-              <i className="bi bi-shield-exclamation text-warning me-1"></i>
-              <span>{t('warningTitle')}</span>
-            </span>
-            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
-              <i className="bi bi-activity text-danger me-1"></i>
-              <span>{t('earthquakeTitle')}</span>
-            </span>
-            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
-              <i className="bi bi-hospital text-primary me-1"></i>
-              <span>{t('hospitalTitle')}</span>
-            </span>
-          </div>
         </div>
       )}
 
@@ -338,14 +327,23 @@ export function DashboardPage() {
               </span>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-2 ks-change-location-btn shadow-xs"
+                className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-2 ks-location-action-btn shadow-xs"
                 onClick={handleToggleLocationSelector}
                 aria-label={t('changeLocation')}
                 aria-expanded={!isLocationSelectorCollapsed}
                 aria-controls="location-selector-body"
               >
-                <i className={`bi ${isLocationSelectorCollapsed ? 'bi-pencil-square' : 'bi-chevron-up'}`} aria-hidden="true"></i>
+                <i className="bi bi-pencil-square" aria-hidden="true"></i>
                 <span>{t('changeLocation')}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger rounded-pill d-inline-flex align-items-center gap-2 ks-location-action-btn ks-reset-location-btn shadow-xs"
+                onClick={handleResetLocation}
+                aria-label={t('resetLocation')}
+              >
+                <i className="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                <span>{t('resetLocation')}</span>
               </button>
             </div>
           </div>

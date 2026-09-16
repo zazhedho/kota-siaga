@@ -489,18 +489,58 @@ body {
   }
 }
 
-@media (max-width: 389.98px) {
+@media (max-width: 439.98px) {
+  .ks-header .container-fluid {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  .ks-header-bar {
+    gap: 0.5rem;
+  }
+
+  .ks-header-brand {
+    gap: 0.5rem;
+  }
+
   .ks-brand-badge {
-    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 1.05rem;
+  }
+
+  .ks-brand-title {
+    font-size: 1rem;
   }
 
   .ks-header-actions {
-    gap: 0.375rem;
+    gap: 0.25rem;
+  }
+
+  .ks-segmented {
+    gap: 1px;
+    padding: 2px;
   }
 
   .ks-segment {
-    padding: 0.3rem 0.55rem;
+    min-height: 40px;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
   }
+
+  .ks-segmented-danger .ks-segment {
+    gap: 0.2rem;
+    padding-right: 0.3rem;
+    padding-left: 0.3rem;
+  }
+}
+
+@media (max-width: 389.98px) {
+  .ks-forecast-item-featured > .d-flex:first-child > .d-flex:first-child .badge {
+    display: none;
+  }
+
 }
 
 /* Base Card */
@@ -512,8 +552,9 @@ body {
   border-radius: var(--ks-radius);
   box-shadow: var(--ks-shadow-card);
   padding: 1.35rem 1.6rem;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
   height: auto;
   align-self: flex-start;
   width: 100%;
@@ -529,6 +570,14 @@ body {
   border-bottom: 1px solid var(--ks-border-subtle);
   padding-bottom: 0.95rem;
   margin-bottom: 1.15rem;
+}
+
+.ks-card-header,
+.ks-card-header .d-flex,
+.ks-card-header .d-flex > div,
+.ks-selected-location-banner > :first-child,
+.ks-selected-location-banner > :first-child > :last-child {
+  min-width: 0;
 }
 
 .ks-icon-tile {
@@ -656,6 +705,7 @@ body {
 .mb-1\.5 { margin-bottom: 0.375rem !important; }
 .me-1\.5 { margin-right: 0.375rem !important; }
 .ms-1\.5 { margin-left: 0.375rem !important; }
+.min-w-0 { min-width: 0 !important; }
 
 .ks-location-search-toggle {
   white-space: nowrap;
@@ -876,17 +926,41 @@ body {
   background: var(--ks-primary-gradient);
 }
 
-.ks-change-location-btn {
+.ks-location-action-btn {
   font-weight: 600;
   transition: all 0.2s ease-in-out;
   padding: 0.35rem 0.85rem;
 }
 
-.ks-change-location-btn:hover {
+.ks-selected-location-actions .ks-location-action-btn:first-of-type {
+  margin-left: auto;
+}
+
+.ks-location-action-btn i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.ks-selected-location-actions,
+.ks-location-action-btn,
+.ks-selected-location-actions .badge {
+  white-space: nowrap;
+}
+
+.ks-location-action-btn:hover {
   background-color: var(--ks-primary);
   color: #fff;
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2);
+}
+
+.ks-reset-location-btn:hover {
+  background-color: var(--ks-danger);
+  border-color: var(--ks-danger);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
 }
 
 .ks-feature-grid {
@@ -981,8 +1055,8 @@ body {
   padding: 1rem 1.25rem;
   background-color: var(--ks-surface);
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .ks-forecast-item:hover {
@@ -1184,8 +1258,8 @@ body {
   padding: 1.15rem 1.25rem;
   background-color: var(--ks-surface);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow-wrap: break-word;
-  word-break: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .ks-hospital-card:hover {
@@ -1218,6 +1292,18 @@ body {
   box-shadow: var(--ks-shadow-glow-success);
 }
 
+.ks-selected-location-banner strong,
+.ks-warning-card h3,
+.ks-warning-card p,
+.ks-earthquake-card .fw-semibold,
+.ks-hospital-card h3,
+.ks-hospital-card p,
+.ks-hospital-phone-btn span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 /* Emergency contacts */
 .ks-emergency-help {
   width: 100%;
@@ -1238,12 +1324,6 @@ body {
   justify-content: center;
   min-width: 0;
   white-space: nowrap;
-}
-
-@media (max-width: 479.98px) {
-  .ks-emergency-actions {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Welcome Onboarding Hero */
@@ -1331,9 +1411,44 @@ body {
 
 /* Mobile-First Layout & Touch Enhancements */
 @media (max-width: 575.98px) {
+  #main-content {
+    padding-right: 0.75rem !important;
+    padding-left: 0.75rem !important;
+  }
+
   .ks-card {
-    padding: 1.15rem 1rem;
+    padding: 1rem 0.875rem;
     border-radius: var(--ks-radius-sm);
+  }
+
+  .ks-card-header {
+    gap: 0.625rem;
+    align-items: center !important;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .ks-card-header .d-flex {
+    gap: 0.625rem !important;
+  }
+
+  .ks-card-header .ks-icon-tile {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .ks-card-header h2 {
+    font-size: 0.875rem;
+    line-height: 1.25;
+  }
+
+  .ks-card-header .badge {
+    flex: 0 0 auto;
+    max-width: 45%;
+    font-size: 0.7rem;
+    white-space: normal;
+    text-align: center;
   }
 
   .ks-welcome-hero {
@@ -1342,14 +1457,37 @@ body {
   }
 
   .ks-selected-location-banner {
-    padding: 1rem 1.15rem;
+    padding: 1rem;
     border-radius: var(--ks-radius-sm);
+  }
+
+  .ks-selected-location-banner > :first-child {
+    flex: 1 1 100%;
+    gap: 0.625rem !important;
   }
 
   .ks-selected-location-actions {
     width: 100%;
+    flex-wrap: nowrap !important;
     justify-content: space-between;
-    margin-top: 0.25rem;
+    margin-top: 0;
+  }
+
+  .ks-location-action-btn {
+    min-height: 44px;
+    padding-right: 0.625rem;
+    padding-left: 0.625rem;
+  }
+
+  .ks-reset-location-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .ks-reset-location-btn span {
+    display: none;
   }
 
   .ks-forecast-item {
@@ -1364,8 +1502,47 @@ body {
     padding: 0.95rem 1rem;
   }
 
+  .ks-earthquake-summary {
+    flex-direction: column;
+  }
+
+  .ks-earthquake-summary > .ks-earthquake-time {
+    width: 100%;
+  }
+
   .ks-hospital-card {
     padding: 0.95rem 1rem;
+  }
+
+  .ks-forecast-item > .d-flex:first-child,
+  .ks-warning-card > .d-flex:first-child,
+  .ks-earthquake-card > .d-flex:first-child,
+  .ks-hospital-card > .d-flex:first-child {
+    flex-wrap: nowrap !important;
+  }
+
+  .ks-forecast-item > .d-flex:first-child > :first-child,
+  .ks-warning-card > .d-flex:first-child > :first-child,
+  .ks-earthquake-card > .d-flex:first-child > :first-child,
+  .ks-hospital-card > .d-flex:first-child > :first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ks-emergency-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .ks-emergency-action {
+    padding-right: 0.5rem !important;
+    padding-left: 0.5rem !important;
+    font-size: 0.75rem;
+  }
+
+  .ks-hospital-phone-btn {
+    width: auto;
+    max-width: 100%;
   }
 
   .form-control,
@@ -1376,13 +1553,53 @@ body {
 }
 
 @media (max-width: 479.98px) {
-  .ks-hospital-phone-btn {
-    width: 100%;
-    justify-content: center;
-  }
-  
   .ks-temp-badge {
     font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 439.98px) {
+  body {
+    letter-spacing: normal;
+  }
+
+  .ks-card .badge:not(.ks-magnitude-badge),
+  .ks-earthquake-time-label,
+  .ks-earthquake-timezone {
+    font-size: 0.75rem !important;
+    line-height: 1.25;
+  }
+
+  .ks-selected-location-banner .text-uppercase {
+    font-size: 0.75rem !important;
+  }
+
+  .ks-forecast-item > .d-flex:first-child,
+  .ks-hospital-card > .d-flex:first-child {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .ks-forecast-item > .d-flex:first-child > :first-child,
+  .ks-hospital-card > .d-flex:first-child > :first-child {
+    width: 100%;
+  }
+
+  .ks-location-action-btn {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .ks-location-action-btn span {
+    display: none;
+  }
+
+  .ks-selected-location-actions > .badge {
+    padding-right: 0.5rem !important;
+    padding-left: 0.5rem !important;
   }
 }
 

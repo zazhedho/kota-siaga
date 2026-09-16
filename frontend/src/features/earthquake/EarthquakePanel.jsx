@@ -54,7 +54,7 @@ export function EarthquakePanel({ items = [], loading = false, error = null, onR
                 key={eq.id || idx}
                 className="ks-earthquake-card"
               >
-                <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3 ks-earthquake-summary">
                   <div className="ks-earthquake-time">
                     <span className="ks-earthquake-time-icon" aria-hidden="true">
                       <i className="bi bi-calendar2-check"></i>
