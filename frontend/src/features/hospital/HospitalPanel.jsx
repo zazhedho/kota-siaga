@@ -88,9 +88,9 @@ export function HospitalPanel({
     <div className="ks-card" aria-labelledby="hospitals-heading">
       <div className="ks-card-header">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-          <div className="d-flex align-items-center gap-2">
-            <div className="p-2 rounded-circle bg-primary-subtle text-primary d-inline-flex">
-              <i className="bi bi-hospital fs-5" aria-hidden="true"></i>
+          <div className="d-flex align-items-center gap-3">
+            <div className="ks-icon-tile bg-primary-subtle text-primary flex-shrink-0 me-1">
+              <i className="bi bi-hospital" aria-hidden="true"></i>
             </div>
             <div>
               <h2 id="hospitals-heading" className="h6 mb-0 text-dark fw-bold">

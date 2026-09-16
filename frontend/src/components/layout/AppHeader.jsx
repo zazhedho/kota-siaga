@@ -10,7 +10,7 @@ export function AppHeader() {
         <div className="ks-header-bar">
           <div className="ks-header-brand">
             <span className="ks-brand-badge" aria-hidden="true">
-              <i className="bi bi-shield-check"></i>
+              <i className="bi bi-shield-fill-check"></i>
             </span>
             <div className="ks-brand-text">
               <h1 className="ks-brand-title">{t('brandTitle')}</h1>

@@ -40,7 +40,7 @@ function renderDashboard() {
 }
 
 async function chooseOption(user, label, optionName) {
-  const input = screen.getByRole('combobox', { name: label })
+  const input = await waitFor(() => screen.getByRole('combobox', { name: label }))
   await waitFor(() => expect(input).toBeEnabled())
   await user.click(input)
   await user.click(await screen.findByRole('option', { name: optionName }))
@@ -137,7 +137,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Selatan Jawa Barat')).toBeInTheDocument()
   })
 
-  it('resets the monitored location and returns focus to location search', async () => {
+  it('expands location selector when changing location while preserving selected hierarchy', async () => {
     const user = userEvent.setup()
     renderDashboard()
 
@@ -150,18 +150,52 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(screen.getByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
     })
-    const activeRequestSignal = hospitalService.listHospitals.mock.calls[0][3]
     expect(localStorage.getItem('kota-siaga.location')).not.toBeNull()
 
     await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
 
     await waitFor(() => {
-      expect(screen.queryByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).not.toBeInTheDocument()
-      expect(screen.getByRole('combobox', { name: /Provinsi|Province/i })).toHaveValue('')
-      expect(screen.getByRole('button', { name: /Cari wilayah langsung|Search location directly/i })).toHaveFocus()
+      expect(screen.getByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: /Provinsi|Province/i })).toHaveValue('JAWA BARAT')
+      expect(screen.getByRole('combobox', { name: /Kabupaten\/Kota|City or regency/i })).toHaveValue('KOTA BANDUNG')
+      expect(screen.getByRole('combobox', { name: /Kecamatan|District/i })).toHaveValue('SUKAJADI')
+      expect(screen.getByRole('combobox', { name: /Kelurahan\/Desa|Village/i })).toHaveValue('PASTEUR')
     })
-    expect(localStorage.getItem('kota-siaga.location')).toBeNull()
-    expect(activeRequestSignal.aborted).toBe(true)
+  })
+
+  it('allows changing only the village without re-selecting province, city, or district', async () => {
+    const user = userEvent.setup()
+    locationService.listVillages.mockResolvedValue({
+      rows: [
+        { id: '3273010100', name: 'PASTEUR', code: '32.73.01.1001' },
+        { id: '3273010101', name: 'CIPAGANTI', code: '32.73.01.1002' },
+      ],
+    })
+
+    renderDashboard()
+
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
+    await chooseOption(user, /Kelurahan\/Desa|Village/i, 'PASTEUR')
+
+    await waitFor(() => {
+      expect(screen.getByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
+    })
+
+    // Expand location selector
+    await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
+
+    // Change ONLY village
+    const villageInput = screen.getByRole('combobox', { name: /Kelurahan\/Desa|Village/i })
+    await user.click(villageInput)
+    await user.click(await screen.findByRole('option', { name: 'CIPAGANTI' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('CIPAGANTI, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
+      expect(weatherService.getForecast).toHaveBeenLastCalledWith('32.73.01.1002', expect.any(Object))
+    })
   })
 
   it('isolates feature failure and keeps other panels functional', async () => {
@@ -295,10 +329,8 @@ describe('DashboardPage', () => {
       expect(hospitalService.listHospitals).toHaveBeenLastCalledWith('3273', 1, 'Hasan', expect.any(Object))
     })
 
-    const provinceInput = screen.getByRole('combobox', { name: /Provinsi|Province/i })
-    await user.click(provinceInput)
-    await user.clear(provinceInput)
-    await user.click(await screen.findByRole('option', { name: 'JAWA TENGAH' }))
+    await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA TENGAH')
     await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA SEMARANG')
     await chooseOption(user, /Kecamatan|District/i, 'SEMARANG TENGAH')
     await chooseOption(user, /Kelurahan\/Desa|Village/i, 'BRUMBUNG')
@@ -338,6 +370,10 @@ describe('DashboardPage', () => {
       expect(screen.getByText('Menampilkan 1 dari 25 fasilitas kesehatan')).toBeInTheDocument()
     })
 
+    await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
     const villageInput = screen.getByRole('combobox', { name: /Village|Desa/i })
     await user.click(villageInput)
     fireEvent.change(villageInput, { target: { value: 'CIPAGANTI' } })

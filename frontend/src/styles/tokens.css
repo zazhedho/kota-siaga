@@ -4,7 +4,7 @@
 
   /* Ink & Text */
   --ks-ink: #0f172a;
-  --ks-ink-muted: #475569;
+  --ks-ink-muted: #334155;
   --ks-ink-subtle: #64748b;
   --ks-ink-faint: #94a3b8;
   
@@ -12,9 +12,11 @@
   --ks-surface: #ffffff;
   --ks-surface-subtle: #f8fafc;
   --ks-surface-card: #ffffff;
-  --ks-background: #f1f5f9;
+  --ks-surface-glass: rgba(255, 255, 255, 0.92);
+  --ks-background: #f8fafc;
   --ks-border: #e2e8f0;
   --ks-border-subtle: #f1f5f9;
+  --ks-border-glass: rgba(226, 232, 240, 0.85);
 
   /* Brand Accents */
   --ks-primary: #0284c7;
@@ -23,41 +25,50 @@
   --ks-primary-border: #bae6fd;
   --ks-primary-dark: #075985;
   --ks-primary-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  --ks-brand-gradient: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  --ks-brand-gradient: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4f46e5 100%);
+  --ks-header-accent-gradient: linear-gradient(90deg, #0284c7 0%, #38bdf8 35%, #2563eb 70%, #10b981 100%);
 
   /* Semantic Status Colors */
   --ks-success: #10b981;
+  --ks-success-hover: #059669;
   --ks-success-bg: #ecfdf5;
   --ks-success-border: #a7f3d0;
   --ks-success-text: #065f46;
+  --ks-success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
 
   --ks-warning: #f59e0b;
+  --ks-warning-hover: #d97706;
   --ks-warning-bg: #fffbeb;
   --ks-warning-border: #fde68a;
   --ks-warning-text: #92400e;
+  --ks-warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 
   --ks-danger: #ef4444;
+  --ks-danger-hover: #dc2626;
   --ks-danger-bg: #fef2f2;
   --ks-danger-border: #fecaca;
   --ks-danger-text: #991b1b;
+  --ks-danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 
   --ks-info: #0284c7;
   --ks-info-bg: #f0f9ff;
   --ks-info-border: #bae6fd;
   --ks-info-text: #0369a1;
 
-  /* Elevations */
+  /* Elevations & Layered Shadows */
   --ks-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-  --ks-shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 8px 24px -4px rgba(15, 23, 42, 0.04);
-  --ks-shadow-hover: 0 12px 32px -4px rgba(15, 23, 42, 0.09), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
-  --ks-shadow-glow-primary: 0 4px 14px rgba(2, 132, 199, 0.25);
-  --ks-shadow-glow-success: 0 4px 14px rgba(16, 185, 129, 0.25);
-  --ks-shadow-glow-danger: 0 4px 14px rgba(239, 68, 68, 0.25);
+  --ks-shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 6px 18px -3px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(226, 232, 240, 0.7);
+  --ks-shadow-hover: 0 16px 36px -6px rgba(15, 23, 42, 0.08), 0 4px 14px -2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(2, 132, 199, 0.18);
+  --ks-shadow-float: 0 20px 40px -8px rgba(15, 23, 42, 0.12), 0 6px 16px -2px rgba(15, 23, 42, 0.06);
+  --ks-shadow-glow-primary: 0 4px 16px rgba(2, 132, 199, 0.28);
+  --ks-shadow-glow-success: 0 4px 16px rgba(16, 185, 129, 0.28);
+  --ks-shadow-glow-danger: 0 4px 16px rgba(239, 68, 68, 0.28);
 
   /* Radius */
   --ks-radius-xs: 6px;
   --ks-radius-sm: 10px;
   --ks-radius: 16px;
   --ks-radius-lg: 22px;
+  --ks-radius-xl: 28px;
   --ks-radius-pill: 9999px;
 }

@@ -49,9 +49,9 @@ export function WarningPanel({ warnings = [], loading = false, error = null, onR
   return (
     <div className="ks-card" aria-labelledby="warnings-heading">
       <div className="d-flex align-items-center justify-content-between ks-card-header">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 rounded-circle bg-warning-subtle text-warning-emphasis d-inline-flex">
-            <i className="bi bi-shield-exclamation fs-5" aria-hidden="true"></i>
+        <div className="d-flex align-items-center gap-3">
+          <div className="ks-icon-tile bg-warning-subtle text-warning-emphasis flex-shrink-0 me-1">
+            <i className="bi bi-shield-exclamation" aria-hidden="true"></i>
           </div>
           <div>
             <h2 id="warnings-heading" className="h6 mb-0 text-dark fw-bold">

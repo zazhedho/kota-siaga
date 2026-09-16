@@ -14,9 +14,9 @@ import { getApiErrorMessage } from '../shared/api/client'
 
 export function DashboardPage() {
   const { t } = useLocale()
-  const [storedLocation, setStoredLocation] = useState(() => readStoredLocation())
-  const [locationSelectorKey, setLocationSelectorKey] = useState(0)
+  const [storedLocation] = useState(() => readStoredLocation())
   const [location, setLocation] = useState(null)
+  const [isLocationSelectorCollapsed, setIsLocationSelectorCollapsed] = useState(() => Boolean(storedLocation))
 
   // Weather state
   const [weatherData, setWeatherData] = useState([])
@@ -174,6 +174,7 @@ export function DashboardPage() {
 
     if (!selectedLoc) {
       clearStoredLocation()
+      setIsLocationSelectorCollapsed(false)
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
@@ -183,16 +184,14 @@ export function DashboardPage() {
       return
     }
 
+    setIsLocationSelectorCollapsed(true)
     writeStoredLocation(selectedLoc)
     loadAllFeatures(selectedLoc)
   }, [loadAllFeatures])
 
-  const handleLocationReset = useCallback(() => {
-    handleLocationComplete(null)
-    setStoredLocation(null)
-    setLocationSelectorKey((current) => current + 1)
-    window.setTimeout(() => document.getElementById('location-search-toggle')?.focus(), 0)
-  }, [handleLocationComplete])
+  const handleToggleLocationSelector = useCallback(() => {
+    setIsLocationSelectorCollapsed((prev) => !prev)
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -203,68 +202,111 @@ export function DashboardPage() {
   }, [])
 
   return (
-    <div className="d-flex flex-column gap-4">
-      {/* Cascading Location Controls */}
+    <div className="d-flex flex-column gap-3 gap-md-4">
+      {/* Cascading Location Controls - expandable/collapsible */}
       <LocationSelector
-        key={locationSelectorKey}
         initialLocation={storedLocation}
         onComplete={handleLocationComplete}
+        collapsed={location ? isLocationSelectorCollapsed : false}
+        onToggleCollapse={location ? handleToggleLocationSelector : undefined}
+        hasSelectedLocation={Boolean(location)}
       />
 
       {/* When no location is selected yet: Modern Welcome Onboarding Hero */}
       {!location && (
         <div className="ks-welcome-hero">
-          <div className="text-center mb-4">
-            <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill small fw-bold mb-2">
-              <i className="bi bi-shield-fill-check me-2"></i>
-              {t('welcomeBadge')}
+          <div className="text-center mb-2 mb-md-4">
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill small fw-bold mb-2 d-inline-flex align-items-center gap-2 shadow-xs">
+              <i className="bi bi-shield-fill-check me-1"></i>
+              <span>{t('welcomeBadge')}</span>
             </span>
-            <h2 className="h4 fw-bold text-dark mb-2">{t('welcomeTitle')}</h2>
-            <p className="text-secondary mx-auto mb-0" style={{ maxWidth: '640px' }}>
+            <h2 className="h5 h4-md fw-bold text-dark mb-1.5 letter-spacing-tight">{t('welcomeTitle')}</h2>
+            <p className="text-secondary mx-auto mb-0 lh-base small" style={{ maxWidth: '640px' }}>
               {t('emptyDashboardPrompt')}
             </p>
           </div>
 
-          <div className="row g-3 pt-2">
+          {/* Desktop & Tablet: Full 4-Card Grid */}
+          <div className="d-none d-md-flex row g-3 pt-2">
             <div className="col-12 col-sm-6 col-lg-3">
               <div className="ks-feature-preview-card">
-                <div className="p-2 rounded-circle bg-info-subtle text-info d-inline-flex mb-2">
-                  <i className="bi bi-cloud-sun fs-5"></i>
+                <div className="d-flex align-items-center justify-content-between mb-2.5">
+                  <div className="ks-icon-tile bg-info-subtle text-info-emphasis">
+                    <i className="bi bi-cloud-sun fs-5" aria-hidden="true"></i>
+                  </div>
+                  <span className="badge bg-light text-secondary border px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.7rem' }}>
+                    BMKG
+                  </span>
                 </div>
-                <h3 className="h6 fw-bold text-dark mb-1">{t('weatherTitle')}</h3>
-                <p className="small text-secondary mb-0">{t('featureWeatherDesc')}</p>
+                <h3 className="h6 fw-bold text-dark mb-1.5">{t('weatherTitle')}</h3>
+                <p className="small text-secondary mb-0 lh-sm">{t('featureWeatherDesc')}</p>
               </div>
             </div>
 
             <div className="col-12 col-sm-6 col-lg-3">
               <div className="ks-feature-preview-card">
-                <div className="p-2 rounded-circle bg-warning-subtle text-warning d-inline-flex mb-2">
-                  <i className="bi bi-shield-exclamation fs-5"></i>
+                <div className="d-flex align-items-center justify-content-between mb-2.5">
+                  <div className="ks-icon-tile bg-warning-subtle text-warning-emphasis">
+                    <i className="bi bi-shield-exclamation fs-5" aria-hidden="true"></i>
+                  </div>
+                  <span className="badge bg-light text-secondary border px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.7rem' }}>
+                    BMKG Dini
+                  </span>
                 </div>
-                <h3 className="h6 fw-bold text-dark mb-1">{t('warningTitle')}</h3>
-                <p className="small text-secondary mb-0">{t('featureWarningDesc')}</p>
+                <h3 className="h6 fw-bold text-dark mb-1.5">{t('warningTitle')}</h3>
+                <p className="small text-secondary mb-0 lh-sm">{t('featureWarningDesc')}</p>
               </div>
             </div>
 
             <div className="col-12 col-sm-6 col-lg-3">
               <div className="ks-feature-preview-card">
-                <div className="p-2 rounded-circle bg-danger-subtle text-danger d-inline-flex mb-2">
-                  <i className="bi bi-activity fs-5"></i>
+                <div className="d-flex align-items-center justify-content-between mb-2.5">
+                  <div className="ks-icon-tile bg-danger-subtle text-danger-emphasis">
+                    <i className="bi bi-activity fs-5" aria-hidden="true"></i>
+                  </div>
+                  <span className="badge bg-light text-secondary border px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.7rem' }}>
+                    BMKG Seismik
+                  </span>
                 </div>
-                <h3 className="h6 fw-bold text-dark mb-1">{t('earthquakeTitle')}</h3>
-                <p className="small text-secondary mb-0">{t('featureEarthquakeDesc')}</p>
+                <h3 className="h6 fw-bold text-dark mb-1.5">{t('earthquakeTitle')}</h3>
+                <p className="small text-secondary mb-0 lh-sm">{t('featureEarthquakeDesc')}</p>
               </div>
             </div>
 
             <div className="col-12 col-sm-6 col-lg-3">
               <div className="ks-feature-preview-card">
-                <div className="p-2 rounded-circle bg-primary-subtle text-primary d-inline-flex mb-2">
-                  <i className="bi bi-hospital fs-5"></i>
+                <div className="d-flex align-items-center justify-content-between mb-2.5">
+                  <div className="ks-icon-tile bg-primary-subtle text-primary">
+                    <i className="bi bi-hospital fs-5" aria-hidden="true"></i>
+                  </div>
+                  <span className="badge bg-light text-secondary border px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.7rem' }}>
+                    SATUSEHAT
+                  </span>
                 </div>
-                <h3 className="h6 fw-bold text-dark mb-1">{t('hospitalTitle')}</h3>
-                <p className="small text-secondary mb-0">{t('featureHospitalDesc')}</p>
+                <h3 className="h6 fw-bold text-dark mb-1.5">{t('hospitalTitle')}</h3>
+                <p className="small text-secondary mb-0 lh-sm">{t('featureHospitalDesc')}</p>
               </div>
             </div>
+          </div>
+
+          {/* Mobile Only: Compact clean micro-pills to eliminate clutter */}
+          <div className="d-flex d-md-none flex-wrap justify-content-center gap-2 pt-2">
+            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
+              <i className="bi bi-cloud-sun text-info me-1"></i>
+              <span>{t('weatherTitle')}</span>
+            </span>
+            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
+              <i className="bi bi-shield-exclamation text-warning me-1"></i>
+              <span>{t('warningTitle')}</span>
+            </span>
+            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
+              <i className="bi bi-activity text-danger me-1"></i>
+              <span>{t('earthquakeTitle')}</span>
+            </span>
+            <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2">
+              <i className="bi bi-hospital text-primary me-1"></i>
+              <span>{t('hospitalTitle')}</span>
+            </span>
           </div>
         </div>
       )}
@@ -278,35 +320,37 @@ export function DashboardPage() {
             aria-live="polite"
           >
             <div className="d-flex align-items-center gap-3">
-              <div className="p-2 rounded-circle bg-primary text-white d-inline-flex shadow-xs">
+              <div className="ks-icon-tile bg-primary text-white shadow-xs">
                 <i className="bi bi-geo-alt-fill fs-5" aria-hidden="true"></i>
               </div>
               <div>
-                <span className="small text-primary fw-bold text-uppercase d-block" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
+                <span className="small text-primary fw-bold text-uppercase d-block" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
                   {t('selectedLocationLabel')}
                 </span>
-                <strong className="text-dark fs-6">
+                <strong className="text-dark fs-6 d-block">
                   {location.village.name}, {location.district.name}, {location.city.name}, {location.province.name}
                 </strong>
               </div>
             </div>
-            <div className="d-flex flex-wrap align-items-center gap-2">
+            <div className="ks-selected-location-actions d-flex flex-wrap align-items-center gap-2">
               <span className="badge bg-white text-primary border border-primary-subtle px-3 py-2 rounded-pill font-monospace small shadow-xs">
                 ADM4: {location.village.code || location.adm4}
               </span>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-2"
-                onClick={handleLocationReset}
+                className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-2 ks-change-location-btn shadow-xs"
+                onClick={handleToggleLocationSelector}
                 aria-label={t('changeLocation')}
+                aria-expanded={!isLocationSelectorCollapsed}
+                aria-controls="location-selector-body"
               >
-                <i className="bi bi-arrow-repeat" aria-hidden="true"></i>
+                <i className={`bi ${isLocationSelectorCollapsed ? 'bi-pencil-square' : 'bi-chevron-up'}`} aria-hidden="true"></i>
                 <span>{t('changeLocation')}</span>
               </button>
             </div>
           </div>
 
-          <div className="row g-4 align-items-start">
+          <div className="row g-4 align-items-start ks-feature-grid">
             {/* Left Column: Weather and Hospitals (below alerts on small screens) */}
             <div className="col-12 col-lg-7 order-2 order-lg-1 d-flex flex-column gap-4">
               <WeatherPanel

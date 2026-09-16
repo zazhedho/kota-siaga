@@ -19,6 +19,7 @@ export function ComboBox({
   ariaBusy = false,
   onQueryChange,
   onChange,
+  icon,
 }) {
   const rootRef = useRef(null)
   const [query, setQuery] = useState('')
@@ -29,9 +30,9 @@ export function ComboBox({
   const selectedLabel = selectedOption ? getOptionLabel(selectedOption) : ''
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    if (!normalizedQuery) return options
+    if (!normalizedQuery || normalizedQuery === selectedLabel.trim().toLowerCase()) return options
     return options.filter((option) => getOptionLabel(option).toLowerCase().includes(normalizedQuery))
-  }, [options, query])
+  }, [options, query, selectedLabel])
 
   useEffect(() => {
     setQuery(selectedLabel)
@@ -116,7 +117,8 @@ export function ComboBox({
   }
 
   return (
-    <div ref={rootRef} className={`ks-combobox${open ? ' is-open' : ''}`}>
+    <div ref={rootRef} className={`ks-combobox${open ? ' is-open' : ''}${icon ? ' ks-combobox-has-icon' : ''}`}>
+      {icon && <i className={`bi ${icon} ks-combobox-leading-icon`} aria-hidden="true"></i>}
       <input
         id={id}
         className="form-control ks-combobox-input shadow-xs"
@@ -137,16 +139,18 @@ export function ComboBox({
       />
       <i className="bi bi-chevron-down ks-combobox-chevron" aria-hidden="true"></i>
 
-      {open && !disabled && (
+      {open && !disabled && (ariaBusy || filteredOptions.length > 0 || Boolean(noResultsLabel)) && (
         <div id={`${id}-listbox`} className="ks-combobox-menu" role="listbox">
           {ariaBusy ? (
             <div className="ks-combobox-empty" role="status">
               {loadingLabel}
             </div>
           ) : filteredOptions.length === 0 ? (
-            <div className="ks-combobox-empty" role="status">
-              {noResultsLabel}
-            </div>
+            noResultsLabel ? (
+              <div className="ks-combobox-empty" role="status">
+                {noResultsLabel}
+              </div>
+            ) : null
           ) : (
             filteredOptions.map((option, index) => {
               const optionId = `${id}-option-${index}`

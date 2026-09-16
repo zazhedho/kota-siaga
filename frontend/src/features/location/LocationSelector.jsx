@@ -11,8 +11,18 @@ import {
 	resolveLocation,
 } from './locationService'
 
-export function LocationSelector({ onComplete, initialLocation = null }) {
-  const { t } = useLocale()
+export function LocationSelector({
+  onComplete,
+  initialLocation = null,
+  collapsed = false,
+  onToggleCollapse,
+  hasSelectedLocation = false,
+}) {
+  const { locale, t } = useLocale()
+
+  const [internalCollapsed, setInternalCollapsed] = useState(false)
+  const isCollapsed = onToggleCollapse ? collapsed : internalCollapsed
+  const handleToggleCollapse = onToggleCollapse || (() => setInternalCollapsed((prev) => !prev))
 
   const [provinces, setProvinces] = useState([])
   const [cities, setCities] = useState([])
@@ -35,6 +45,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
   const [errorVillage, setErrorVillage] = useState(null)
 
   const [directSearchOpen, setDirectSearchOpen] = useState(false)
+  const [directSearchClosing, setDirectSearchClosing] = useState(false)
   const [directSearchQuery, setDirectSearchQuery] = useState('')
   const [directSearchOptions, setDirectSearchOptions] = useState([])
   const [directSearchValue, setDirectSearchValue] = useState('')
@@ -154,12 +165,25 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
     if (directResolveAbortRef.current) directResolveAbortRef.current.abort()
     directSearchRequestRef.current += 1
     setDirectSearchOpen(false)
+    setDirectSearchClosing(false)
     setDirectSearchQuery('')
     setDirectSearchOptions([])
     setDirectSearchValue('')
     setLoadingDirectSearch(false)
     setErrorDirectSearch(null)
   }, [])
+
+  const handleToggleDirectSearch = useCallback(() => {
+    if (directSearchOpen) {
+      setDirectSearchClosing(true)
+      window.setTimeout(() => {
+        clearDirectSearch()
+      }, 200)
+    } else {
+      setDirectSearchOpen(true)
+      setDirectSearchClosing(false)
+    }
+  }, [directSearchOpen, clearDirectSearch])
 
   const applyLocationPath = useCallback((path) => {
     if (!path?.province || !path?.city || !path?.district) return false
@@ -179,6 +203,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
       setVillages([path.village])
       setSelectedVillageId(String(path.village.id))
       onComplete?.({ ...path, adm4: path.village.code })
+      fetchVillages(path.district.id)
     } else {
       setVillages([])
       setSelectedVillageId('')
@@ -245,6 +270,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
         return
       }
       setDirectSearchOpen(false)
+      setDirectSearchClosing(false)
       setDirectSearchQuery('')
       setDirectSearchOptions([])
       setDirectSearchValue('')
@@ -380,197 +406,262 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
   }
 
   return (
-    <div className="ks-card ks-location-card mb-4" aria-labelledby="location-heading">
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <div className="d-flex align-items-center gap-2">
-          <div className="ks-icon-tile bg-primary-subtle text-primary">
+    <div className={`ks-card ks-location-card${isCollapsed ? ' is-collapsed' : ''}`} aria-labelledby="location-heading">
+      {/* Header section with responsive layout */}
+      <div className={`d-flex align-items-center justify-content-between gap-2 gap-sm-2.5 ks-location-header ${isCollapsed ? 'mb-0' : 'mb-3'}`}>
+        <div
+          className={`d-flex align-items-center gap-2 gap-sm-3 min-w-0 ${hasSelectedLocation ? 'ks-collapse-trigger' : ''}`}
+          onClick={hasSelectedLocation ? handleToggleCollapse : undefined}
+          style={{ cursor: hasSelectedLocation ? 'pointer' : 'default' }}
+        >
+          <div className="ks-icon-tile ks-location-icon-tile bg-primary-subtle text-primary flex-shrink-0">
             <i className="bi bi-geo-alt-fill" aria-hidden="true"></i>
           </div>
-          <div>
-            <h2 id="location-heading" className="h6 mb-0 text-dark fw-bold">
-              {t('locationSectionTitle')}
-            </h2>
-            <p className="text-secondary small mb-0">{t('locationInstruction')}</p>
+          <div className="min-w-0">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <h2 id="location-heading" className="h6 mb-0 text-dark fw-bold ks-location-title">
+                {t('locationSectionTitle')}
+              </h2>
+              {hasSelectedLocation && isCollapsed && (
+                <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.72rem' }}>
+                  {locale === 'en' ? 'Location Active' : 'Wilayah Aktif'}
+                </span>
+              )}
+            </div>
+            <p className="text-secondary small mb-0 d-none d-sm-block mt-0.5">
+              {isCollapsed
+                ? (locale === 'en' ? 'Expand to adjust location hierarchy' : 'Buka pilihan untuk menyesuaikan wilayah')
+                : t('locationInstruction')}
+            </p>
           </div>
         </div>
-        <button
-          id="location-search-toggle"
-          type="button"
-          className="btn btn-sm btn-outline-primary ks-location-search-toggle d-inline-flex align-items-center gap-2"
-          aria-controls="direct-location-search"
-          aria-expanded={directSearchOpen}
-          aria-pressed={directSearchOpen}
-          onClick={() => (directSearchOpen ? clearDirectSearch() : setDirectSearchOpen(true))}
-        >
-          <i className="bi bi-search" aria-hidden="true"></i>
-          <span>{t('directSearchToggle')}</span>
-        </button>
+
+        <div className="d-flex align-items-center gap-1.5 gap-sm-2 flex-shrink-0">
+          {!isCollapsed && (
+            <button
+              id="location-search-toggle"
+              type="button"
+              className={`btn btn-sm ${
+                directSearchOpen
+                  ? 'btn-primary text-white shadow-xs'
+                  : 'btn-outline-primary'
+              } ks-location-search-toggle d-inline-flex align-items-center justify-content-center flex-shrink-0`}
+              aria-controls="direct-location-search"
+              aria-expanded={directSearchOpen}
+              aria-pressed={directSearchOpen}
+              aria-label={t('directSearchToggle')}
+              title={t('directSearchToggle')}
+              onClick={handleToggleDirectSearch}
+            >
+              <i className={`bi ${directSearchOpen ? 'bi-x-lg' : 'bi-search'}`} aria-hidden="true"></i>
+              <span className="d-none d-sm-inline ms-1.5">{t('directSearchToggle')}</span>
+            </button>
+          )}
+
+          {hasSelectedLocation && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary rounded-circle ks-collapse-toggle-btn shadow-xs"
+              onClick={handleToggleCollapse}
+              aria-expanded={!isCollapsed}
+              aria-controls="location-selector-body"
+              aria-label={isCollapsed ? (locale === 'en' ? 'Expand location selector' : 'Buka pemilihan wilayah') : (locale === 'en' ? 'Collapse location selector' : 'Tutup pemilihan wilayah')}
+              title={isCollapsed ? (locale === 'en' ? 'Expand' : 'Buka') : (locale === 'en' ? 'Collapse' : 'Tutup')}
+            >
+              <i className={`bi ${isCollapsed ? 'bi-chevron-down' : 'bi-chevron-up'}`} aria-hidden="true"></i>
+            </button>
+          )}
+        </div>
       </div>
 
-      {directSearchOpen && (
-        <div id="direct-location-search" className="ks-direct-search mb-3">
-          <label htmlFor="location-search" className="form-label fw-semibold small text-dark mb-1">
-            {t('directSearchLabel')}
-          </label>
-          <ComboBox
-            id="location-search"
-            value={directSearchValue}
-            options={directSearchOptions}
-            placeholder={t('directSearchPlaceholder')}
-            noResultsLabel={directSearchQuery.trim().length < 3 ? t('directSearchHint') : t('directSearchNoResults')}
-            loadingLabel={t('directSearchLoading')}
-            ariaBusy={loadingDirectSearch}
-            onQueryChange={handleDirectSearchQuery}
-            onChange={handleDirectSearchSelect}
-          />
-          <p className="small text-secondary mb-0 mt-1">{t('directSearchHint')}</p>
-          {errorDirectSearch && (
-            <div className="small text-danger mt-1" role="alert">
-              {errorDirectSearch}
-            </div>
-          )}
-        </div>
-      )}
+      <div
+        id="location-selector-body"
+        className={`ks-location-collapse-wrapper${isCollapsed ? ' is-collapsed' : ''}`}
+        aria-hidden={isCollapsed}
+      >
+        <div className="ks-location-collapse-inner">
+          {(directSearchOpen || directSearchClosing) && (
+            <div
+              id="direct-location-search"
+              className={`ks-direct-search mb-3${directSearchClosing ? ' ks-is-closing' : ''}`}
+            >
+              <label htmlFor="location-search" className="form-label fw-semibold small text-dark mb-1.5 d-block">
+                {t('directSearchLabel')}
+              </label>
 
-      <div className="row g-3">
-        {/* Province */}
-        <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="province-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
-            <span>
-              <span className="ks-step-badge me-2">1</span>
-              {t('province')}
-            </span>
-            {loadingProvince && (
-              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-            )}
-          </label>
-          <ComboBox
-            id="province-select"
-            value={selectedProvinceId}
-            options={provinces}
-            placeholder={loadingProvince ? t('loadingLocations') : t('selectProvince')}
-            disabled={loadingProvince}
-            noResultsLabel={t('noLocationResults')}
-            onChange={handleProvinceChange}
-            ariaBusy={loadingProvince}
-          />
-          {errorProvince && (
-            <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{errorProvince}</span>
-              <button
-                type="button"
-                className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
-                onClick={fetchProvinces}
-              >
-                {t('retry')}
-              </button>
-            </div>
-          )}
-        </div>
+              <ComboBox
+                id="location-search"
+                value={directSearchValue}
+                options={directSearchOptions}
+                placeholder={t('directSearchPlaceholder')}
+                noResultsLabel={directSearchQuery.trim().length < 3 ? t('directSearchHint') : t('directSearchNoResults')}
+                loadingLabel={t('directSearchLoading')}
+                ariaBusy={loadingDirectSearch}
+                icon="bi-search"
+                onQueryChange={handleDirectSearchQuery}
+                onChange={handleDirectSearchSelect}
+              />
 
-        {/* City / Regency */}
-        <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="city-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
-            <span>
-              <span className="ks-step-badge me-2">2</span>
-              {t('city')}
-            </span>
-            {loadingCity && (
-              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-            )}
-          </label>
-          <ComboBox
-            id="city-select"
-            value={selectedCityId}
-            options={cities}
-            placeholder={loadingCity ? t('loadingLocations') : t('selectCity')}
-            disabled={!selectedProvinceId || loadingCity}
-            noResultsLabel={t('noLocationResults')}
-            onChange={handleCityChange}
-            ariaBusy={loadingCity}
-          />
-          {errorCity && (
-            <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{errorCity}</span>
-              <button
-                type="button"
-                className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
-                onClick={() => fetchCities(selectedProvinceId)}
-              >
-                {t('retry')}
-              </button>
+              {errorDirectSearch && (
+                <div className="alert alert-danger py-2 px-3 mt-2 mb-0 small d-flex align-items-center gap-2" role="alert">
+                  <i className="bi bi-exclamation-triangle-fill flex-shrink-0" aria-hidden="true"></i>
+                  <span>{errorDirectSearch}</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
 
-        {/* District */}
-        <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="district-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
-            <span>
-              <span className="ks-step-badge me-2">3</span>
-              {t('district')}
-            </span>
-            {loadingDistrict && (
-              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-            )}
-          </label>
-          <ComboBox
-            id="district-select"
-            value={selectedDistrictId}
-            options={districts}
-            placeholder={loadingDistrict ? t('loadingLocations') : t('selectDistrict')}
-            disabled={!selectedCityId || loadingDistrict}
-            noResultsLabel={t('noLocationResults')}
-            onChange={handleDistrictChange}
-            ariaBusy={loadingDistrict}
-          />
-          {errorDistrict && (
-            <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{errorDistrict}</span>
-              <button
-                type="button"
-                className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
-                onClick={() => fetchDistricts(selectedCityId)}
-              >
-                {t('retry')}
-              </button>
+          {(directSearchOpen || directSearchClosing) && (
+            <div className={`ks-search-divider my-3${directSearchClosing ? ' ks-is-closing' : ''}`}>
+              <span>{locale === 'en' ? 'or select manually below' : 'atau pilih manual di bawah'}</span>
             </div>
           )}
-        </div>
 
-        {/* Village */}
-        <div className="col-12 col-md-6 col-lg-3">
-          <label htmlFor="village-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
-            <span>
-              <span className="ks-step-badge me-2">4</span>
-              {t('village')}
-            </span>
-            {loadingVillage && (
-              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-            )}
-          </label>
-          <ComboBox
-            id="village-select"
-            value={selectedVillageId}
-            options={villages}
-            placeholder={loadingVillage ? t('loadingLocations') : t('selectVillage')}
-            disabled={!selectedDistrictId || loadingVillage}
-            noResultsLabel={t('noLocationResults')}
-            onChange={handleVillageChange}
-            ariaBusy={loadingVillage}
-          />
-          {errorVillage && (
-            <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
-              <span>{errorVillage}</span>
-              <button
-                type="button"
-                className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
-                onClick={() => fetchVillages(selectedDistrictId)}
-              >
-                {t('retry')}
-              </button>
+          <div className="row g-3">
+            {/* Province */}
+            <div className="col-12 col-md-6 col-lg-3">
+              <label htmlFor="province-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+                <span>
+                  <span className={`ks-step-badge me-2 ${selectedProvinceId ? 'ks-step-badge-done' : ''}`}>1</span>
+                  {t('province')}
+                </span>
+                {loadingProvince && (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                )}
+              </label>
+              <ComboBox
+                id="province-select"
+                value={selectedProvinceId}
+                options={provinces}
+                placeholder={loadingProvince ? t('loadingLocations') : t('selectProvince')}
+                disabled={loadingProvince}
+                noResultsLabel={t('noLocationResults')}
+                icon="bi-map"
+                onChange={handleProvinceChange}
+                ariaBusy={loadingProvince}
+              />
+              {errorProvince && (
+                <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
+                  <span>{errorProvince}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
+                    onClick={fetchProvinces}
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* City / Regency */}
+            <div className="col-12 col-md-6 col-lg-3">
+              <label htmlFor="city-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+                <span>
+                  <span className={`ks-step-badge me-2 ${selectedCityId ? 'ks-step-badge-done' : ''}`}>2</span>
+                  {t('city')}
+                </span>
+                {loadingCity && (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                )}
+              </label>
+              <ComboBox
+                id="city-select"
+                value={selectedCityId}
+                options={cities}
+                placeholder={loadingCity ? t('loadingLocations') : t('selectCity')}
+                disabled={!selectedProvinceId || loadingCity}
+                noResultsLabel={t('noLocationResults')}
+                icon="bi-buildings"
+                onChange={handleCityChange}
+                ariaBusy={loadingCity}
+              />
+              {errorCity && (
+                <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
+                  <span>{errorCity}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
+                    onClick={() => fetchCities(selectedProvinceId)}
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* District */}
+            <div className="col-12 col-md-6 col-lg-3">
+              <label htmlFor="district-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+                <span>
+                  <span className={`ks-step-badge me-2 ${selectedDistrictId ? 'ks-step-badge-done' : ''}`}>3</span>
+                  {t('district')}
+                </span>
+                {loadingDistrict && (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                )}
+              </label>
+              <ComboBox
+                id="district-select"
+                value={selectedDistrictId}
+                options={districts}
+                placeholder={loadingDistrict ? t('loadingLocations') : t('selectDistrict')}
+                disabled={!selectedCityId || loadingDistrict}
+                noResultsLabel={t('noLocationResults')}
+                icon="bi-compass"
+                onChange={handleDistrictChange}
+                ariaBusy={loadingDistrict}
+              />
+              {errorDistrict && (
+                <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
+                  <span>{errorDistrict}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
+                    onClick={() => fetchDistricts(selectedCityId)}
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Village */}
+            <div className="col-12 col-md-6 col-lg-3">
+              <label htmlFor="village-select" className="form-label fw-semibold small text-dark d-flex align-items-center justify-content-between mb-1.5">
+                <span>
+                  <span className={`ks-step-badge me-2 ${selectedVillageId ? 'ks-step-badge-done' : ''}`}>4</span>
+                  {t('village')}
+                </span>
+                {loadingVillage && (
+                  <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
+                )}
+              </label>
+              <ComboBox
+                id="village-select"
+                value={selectedVillageId}
+                options={villages}
+                placeholder={loadingVillage ? t('loadingLocations') : t('selectVillage')}
+                disabled={!selectedDistrictId || loadingVillage}
+                noResultsLabel={t('noLocationResults')}
+                icon="bi-pin-map"
+                onChange={handleVillageChange}
+                ariaBusy={loadingVillage}
+              />
+              {errorVillage && (
+                <div className="mt-1 small text-danger d-flex align-items-center justify-content-between">
+                  <span>{errorVillage}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-2 text-decoration-none"
+                    onClick={() => fetchVillages(selectedDistrictId)}
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

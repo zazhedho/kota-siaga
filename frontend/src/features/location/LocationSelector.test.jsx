@@ -204,7 +204,9 @@ describe('LocationSelector', () => {
     await user.click(toggle)
     expect(screen.getByRole('combobox', { name: /Cari Kecamatan atau Kelurahan\/Desa|Search District or Village/i })).toBeInTheDocument()
     await user.click(toggle)
-    expect(screen.queryByRole('combobox', { name: /Cari Kecamatan atau Kelurahan\/Desa|Search District or Village/i })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('combobox', { name: /Cari Kecamatan atau Kelurahan\/Desa|Search District or Village/i })).not.toBeInTheDocument()
+    })
 
     await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
     expect(locationService.listCities).toHaveBeenCalledWith('32', expect.any(AbortSignal))
@@ -281,5 +283,40 @@ describe('LocationSelector', () => {
         adm4: '32.73.01.1001',
       })
     })
+  })
+
+  it('supports collapsible states and notifies onToggleCollapse', async () => {
+    const onToggleCollapse = vi.fn()
+    const user = userEvent.setup()
+
+    const { rerender } = renderComponent({
+      collapsed: true,
+      hasSelectedLocation: true,
+      onToggleCollapse,
+    })
+
+    expect(screen.getByText(/Wilayah Aktif|Location Active/i)).toBeInTheDocument()
+    const toggleBtn = screen.getByRole('button', { name: /Buka pemilihan wilayah|Expand location selector/i })
+    expect(toggleBtn).toBeInTheDocument()
+
+    await user.click(toggleBtn)
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+
+    const titleArea = screen.getByText(/Pilih Wilayah Pantauan|Monitor Location/i).closest('.ks-collapse-trigger')
+    await user.click(titleArea)
+    expect(onToggleCollapse).toHaveBeenCalledTimes(2)
+
+    rerender(
+      <LocaleProvider>
+        <LocationSelector
+          collapsed={false}
+          hasSelectedLocation={true}
+          onToggleCollapse={onToggleCollapse}
+        />
+      </LocaleProvider>,
+    )
+
+    expect(screen.getByRole('button', { name: /Tutup pemilihan wilayah|Collapse location selector/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Cari wilayah langsung|Search location directly/i })).toBeInTheDocument()
   })
 })

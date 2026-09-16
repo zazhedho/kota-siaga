@@ -8,9 +8,9 @@ export function EarthquakePanel({ items = [], loading = false, error = null, onR
   return (
     <div className="ks-card" aria-labelledby="earthquakes-heading">
       <div className="d-flex align-items-center justify-content-between ks-card-header">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 rounded-circle bg-danger-subtle text-danger d-inline-flex">
-            <i className="bi bi-activity fs-5" aria-hidden="true"></i>
+        <div className="d-flex align-items-center gap-3">
+          <div className="ks-icon-tile bg-danger-subtle text-danger flex-shrink-0 me-1">
+            <i className="bi bi-activity" aria-hidden="true"></i>
           </div>
           <div>
             <h2 id="earthquakes-heading" className="h6 mb-0 text-dark fw-bold">

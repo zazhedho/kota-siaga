@@ -30,9 +30,9 @@ export function WeatherPanel({ items = [], loading = false, error = null, onRetr
   return (
     <div className="ks-card" aria-labelledby="weather-heading">
       <div className="d-flex align-items-center justify-content-between ks-card-header">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 rounded-circle bg-info-subtle text-info-emphasis d-inline-flex">
-            <i className="bi bi-cloud-sun fs-5" aria-hidden="true"></i>
+        <div className="d-flex align-items-center gap-3">
+          <div className="ks-icon-tile bg-info-subtle text-info-emphasis flex-shrink-0 me-1">
+            <i className="bi bi-cloud-sun" aria-hidden="true"></i>
           </div>
           <div>
             <h2 id="weather-heading" className="h6 mb-0 text-dark fw-bold">
@@ -64,7 +64,7 @@ export function WeatherPanel({ items = [], loading = false, error = null, onRetr
       )}
 
       {!loading && !error && items.length > 0 && (
-        <div className={`d-flex flex-column gap-2 ${items.length > 5 ? 'ks-scrollable-list' : ''}`}>
+        <div className={`d-flex flex-column gap-3 ${items.length > 5 ? 'ks-scrollable-list' : ''}`}>
           {items.map((item, idx) => {
             const desc =
               locale === 'en' && item.weather_description_en
@@ -73,13 +73,19 @@ export function WeatherPanel({ items = [], loading = false, error = null, onRetr
 
             const timeLabel = item.local_datetime || item.datetime || ''
             const weatherIcon = getWeatherIcon(desc)
+            const isFeatured = idx === 0
 
             return (
-              <div key={item.id || idx} className="ks-forecast-item">
+              <div key={item.id || idx} className={`ks-forecast-item ${isFeatured ? 'ks-forecast-item-featured' : ''}`}>
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                   <div className="d-flex align-items-center gap-2">
                     <i className={`bi ${weatherIcon} fs-5`} aria-hidden="true"></i>
                     <span className="fw-bold text-dark small">{timeLabel}</span>
+                    {isFeatured && (
+                      <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill small" style={{ fontSize: '0.68rem' }}>
+                        {locale === 'en' ? 'Upcoming' : 'Prakiraan Terdekat'}
+                      </span>
+                    )}
                   </div>
                   <span className="badge bg-light text-dark border px-2 py-1 rounded-pill small">
                     {desc}
