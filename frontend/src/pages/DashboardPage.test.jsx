@@ -137,6 +137,33 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Selatan Jawa Barat')).toBeInTheDocument()
   })
 
+  it('resets the monitored location and returns focus to location search', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+
+    await waitFor(() => expect(locationService.listProvinces).toHaveBeenCalled())
+    await chooseOption(user, /Provinsi|Province/i, 'JAWA BARAT')
+    await chooseOption(user, /Kabupaten\/Kota|City or regency/i, 'KOTA BANDUNG')
+    await chooseOption(user, /Kecamatan|District/i, 'SUKAJADI')
+    await chooseOption(user, /Kelurahan\/Desa|Village/i, 'PASTEUR')
+
+    await waitFor(() => {
+      expect(screen.getByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).toBeInTheDocument()
+    })
+    const activeRequestSignal = hospitalService.listHospitals.mock.calls[0][3]
+    expect(localStorage.getItem('kota-siaga.location')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Ganti Wilayah|Change Location/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('PASTEUR, SUKAJADI, KOTA BANDUNG, JAWA BARAT')).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: /Provinsi|Province/i })).toHaveValue('')
+      expect(screen.getByRole('button', { name: /Cari wilayah langsung|Search location directly/i })).toHaveFocus()
+    })
+    expect(localStorage.getItem('kota-siaga.location')).toBeNull()
+    expect(activeRequestSignal.aborted).toBe(true)
+  })
+
   it('isolates feature failure and keeps other panels functional', async () => {
     warningService.listWarnings.mockRejectedValueOnce(new Error('Peringatan gagal dimuat'))
 

@@ -1,31 +1,16 @@
+version: "2"
 run:
-  timeout: 5m
-  tests: true
-  modules-download-mode: readonly
   relative-path-mode: gomod
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-rules:
-    - linters:
-        - misspell
-      text: "`thn` is a misspelling of `then`"
-    - path: pkg/messages/message.go
-      linters:
-        - gosec
-      text: "G101: Potential hardcoded credentials"
-
+  modules-download-mode: readonly
+  tests: true
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - dupl
-    - errorlint
     - errcheck
-    - gofmt
+    - errorlint
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
@@ -35,12 +20,45 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
-    - typecheck
     - unconvert
     - unused
-
-linters-settings:
-  dupl:
-    threshold: 200
-  misspell:
-    locale: US
+  settings:
+    dupl:
+      threshold: 200
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - noctx
+        path: _test\.go
+        text: httptest.NewRequest
+      - linters:
+          - misspell
+        text: '`thn` is a misspelling of `then`'
+      - linters:
+          - gosec
+        path: pkg/messages/message.go
+        text: 'G101: Potential hardcoded credentials'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

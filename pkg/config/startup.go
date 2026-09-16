@@ -11,7 +11,7 @@ import (
 )
 
 func ValidateStartupConfig(port string) error {
-	var problems []string
+	problems := make([]string, 0, 6)
 
 	problems = append(problems, validateRequiredPort(port)...)
 	problems = append(problems, validateAPIIndonesiaConfig()...)

@@ -394,6 +394,7 @@ export function LocationSelector({ onComplete, initialLocation = null }) {
           </div>
         </div>
         <button
+          id="location-search-toggle"
           type="button"
           className="btn btn-sm btn-outline-primary ks-location-search-toggle d-inline-flex align-items-center gap-2"
           aria-controls="direct-location-search"

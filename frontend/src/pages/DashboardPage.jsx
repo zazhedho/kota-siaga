@@ -14,7 +14,8 @@ import { getApiErrorMessage } from '../shared/api/client'
 
 export function DashboardPage() {
   const { t } = useLocale()
-  const [storedLocation] = useState(() => readStoredLocation())
+  const [storedLocation, setStoredLocation] = useState(() => readStoredLocation())
+  const [locationSelectorKey, setLocationSelectorKey] = useState(0)
   const [location, setLocation] = useState(null)
 
   // Weather state
@@ -186,6 +187,13 @@ export function DashboardPage() {
     loadAllFeatures(selectedLoc)
   }, [loadAllFeatures])
 
+  const handleLocationReset = useCallback(() => {
+    handleLocationComplete(null)
+    setStoredLocation(null)
+    setLocationSelectorKey((current) => current + 1)
+    window.setTimeout(() => document.getElementById('location-search-toggle')?.focus(), 0)
+  }, [handleLocationComplete])
+
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -198,6 +206,7 @@ export function DashboardPage() {
     <div className="d-flex flex-column gap-4">
       {/* Cascading Location Controls */}
       <LocationSelector
+        key={locationSelectorKey}
         initialLocation={storedLocation}
         onComplete={handleLocationComplete}
       />
@@ -281,9 +290,20 @@ export function DashboardPage() {
                 </strong>
               </div>
             </div>
-            <span className="badge bg-white text-primary border border-primary-subtle px-3 py-2 rounded-pill font-monospace small shadow-xs">
-              ADM4: {location.village.code || location.adm4}
-            </span>
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <span className="badge bg-white text-primary border border-primary-subtle px-3 py-2 rounded-pill font-monospace small shadow-xs">
+                ADM4: {location.village.code || location.adm4}
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary rounded-pill d-inline-flex align-items-center gap-2"
+                onClick={handleLocationReset}
+                aria-label={t('changeLocation')}
+              >
+                <i className="bi bi-arrow-repeat" aria-hidden="true"></i>
+                <span>{t('changeLocation')}</span>
+              </button>
+            </div>
           </div>
 
           <div className="row g-4 align-items-start">
